@@ -1,5 +1,6 @@
 import { and, asc, between, eq, isNull } from "drizzle-orm";
 
+import { accrueFreezes } from "@/lib/freeze";
 import { db } from "./index";
 import {
   checkins,
@@ -44,18 +45,31 @@ export async function archiveHabit(id: number): Promise<Habit | undefined> {
   return habit;
 }
 
+/**
+ * Lazily accrues freezes for a habit on read: when the monthly accrual
+ * points (the 1st of each month since `createdAt`) grant more than the
+ * stored balance, the new balance is persisted and returned. Habits at
+ * the cap are left untouched. Archived habits are skipped.
+ */
+function withAccruedFreezes(habit: Habit, now: Date): Habit {
+  if (habit.archivedAt) return habit;
+  const next = accrueFreezes(habit, now);
+  if (next === habit.freezeBank) return habit;
+  db.update(habits).set({ freezeBank: next }).where(eq(habits.id, habit.id)).run();
+  return { ...habit, freezeBank: next };
+}
+
 /** Lists active (non-archived) habits, optionally including archived ones. */
 export async function listHabits(options?: { includeArchived?: boolean }): Promise<Habit[]> {
   const query = db.select().from(habits).orderBy(asc(habits.createdAt));
-  if (!options?.includeArchived) {
-    return query.where(isNull(habits.archivedAt));
-  }
-  return query;
+  const rows = options?.includeArchived ? await query : await query.where(isNull(habits.archivedAt));
+  const now = new Date();
+  return rows.map((habit) => withAccruedFreezes(habit, now));
 }
 
 export async function getHabitById(id: number): Promise<Habit | undefined> {
   const [habit] = await db.select().from(habits).where(eq(habits.id, id));
-  return habit;
+  return habit ? withAccruedFreezes(habit, new Date()) : undefined;
 }
 
 /* ------------------------------- checkins ----------------------------- */
@@ -96,6 +110,36 @@ export async function toggleCheckin(
   }
   await db.insert(checkins).values(data);
   return "checked";
+}
+
+/**
+ * Inserts a check-in or overwrites its recorded value.
+ * A `value` of null or <= 0 removes the check-in (clears the day).
+ */
+export async function upsertCheckin(
+  habitId: number,
+  date: string,
+  value: number | null
+): Promise<"set" | "cleared"> {
+  const [existing] = await db
+    .select()
+    .from(checkins)
+    .where(and(eq(checkins.habitId, habitId), eq(checkins.date, date)));
+
+  if (value === null || value <= 0) {
+    if (existing) {
+      await db.delete(checkins).where(eq(checkins.id, existing.id));
+    }
+    return "cleared";
+  }
+
+  if (existing) {
+    await db.update(checkins).set({ value }).where(eq(checkins.id, existing.id));
+    return "set";
+  }
+
+  await db.insert(checkins).values({ habitId, date, value });
+  return "set";
 }
 
 /* ------------------------------ reminders ----------------------------- */

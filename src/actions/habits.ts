@@ -9,6 +9,7 @@ import {
   getHabitById,
   toggleCheckin,
   updateHabit,
+  upsertCheckin,
 } from "@/db/queries";
 import { habitTypeEnum, type NewHabit } from "@/db/schema";
 import type { Schedule } from "@/types/schedule";
@@ -84,6 +85,13 @@ const toggleCheckinSchema = z.object({
   habitId: z.number().int().positive(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
   value: z.number().int().optional().nullable(),
+});
+
+const setCheckinValueSchema = z.object({
+  habitId: z.number().int().positive(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+  /** Recorded value; null or <= 0 clears the check-in for the day. */
+  value: z.number().int().nullable(),
 });
 
 /* ------------------------------- helpers ------------------------------ */
@@ -196,6 +204,29 @@ export async function toggleCheckinAction(
       return { ok: false, error: `Habit ${habitId} not found` };
     }
     const result = await toggleCheckin(habitId, date, value ?? undefined);
+    revalidateDashboard();
+    return { ok: true, data: result };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+/** Sets (or clears) the recorded value for quantitative/timed habits. */
+export async function setCheckinValueAction(
+  input: z.input<typeof setCheckinValueSchema>
+): Promise<ActionResult<Awaited<ReturnType<typeof upsertCheckin>>>> {
+  const parsed = setCheckinValueSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: firstIssueMessage(parsed.error) };
+  }
+
+  try {
+    const { habitId, date, value } = parsed.data;
+    const habit = await getHabitById(habitId);
+    if (!habit) {
+      return { ok: false, error: `Habit ${habitId} not found` };
+    }
+    const result = await upsertCheckin(habitId, date, value ?? null);
     revalidateDashboard();
     return { ok: true, data: result };
   } catch (error) {
