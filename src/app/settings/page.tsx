@@ -1,10 +1,38 @@
-export default function SettingsPage() {
+import {
+  getTelegramChatId,
+  listHabits,
+  listReminders,
+} from "@/db/queries";
+import { SettingsClient, type ReminderRow } from "@/components/settings/settings-client";
+
+/**
+ * Settings page: Telegram binding (chat id) and per-habit reminders.
+ */
+
+export const dynamic = "force-dynamic";
+
+export default async function SettingsPage() {
+  const [chatId, habits, reminders] = await Promise.all([
+    getTelegramChatId(),
+    listHabits({ includeArchived: false }),
+    listReminders(),
+  ]);
+
+  const habitNames = new Map(habits.map((habit) => [habit.id, habit.name]));
+  const rows: ReminderRow[] = reminders.map((reminder) => ({
+    id: reminder.id,
+    habitId: reminder.habitId,
+    habitName: habitNames.get(reminder.habitId) ?? "Unknown habit",
+    time: reminder.time,
+    daysOfWeek: reminder.daysOfWeek,
+    enabled: reminder.enabled,
+  }));
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-      <p className="text-muted-foreground">
-        Global settings and Telegram integration will appear here.
-      </p>
-    </div>
+    <SettingsClient
+      chatId={chatId ?? null}
+      habits={habits.map((habit) => ({ id: habit.id, name: habit.name, color: habit.color }))}
+      reminders={rows}
+    />
   );
 }

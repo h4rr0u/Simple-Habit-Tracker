@@ -77,6 +77,27 @@ export const settings = sqliteTable("settings", {
   value: text("value", { mode: "json" }).notNull(),
 });
 
+/**
+ * One-delivery guard for reminders: a row is written when a reminder is
+ * sent for a habit on a day; the unique (habitId, date) index makes
+ * re-sends idempotent even when the cron process restarts.
+ */
+export const reminderLog = sqliteTable(
+  "reminder_log",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    habitId: integer("habit_id")
+      .notNull()
+      .references(() => habits.id, { onDelete: "cascade" }),
+    /** ISO date string (YYYY-MM-DD), local to the user. */
+    date: text("date").notNull(),
+    sentAt: integer("sent_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [uniqueIndex("reminder_log_habit_date_uq").on(table.habitId, table.date)]
+);
+
 export type Habit = typeof habits.$inferSelect;
 export type NewHabit = typeof habits.$inferInsert;
 export type Checkin = typeof checkins.$inferSelect;
@@ -84,3 +105,5 @@ export type NewCheckin = typeof checkins.$inferInsert;
 export type Reminder = typeof reminders.$inferSelect;
 export type NewReminder = typeof reminders.$inferInsert;
 export type Setting = typeof settings.$inferSelect;
+export type ReminderLog = typeof reminderLog.$inferSelect;
+export type NewReminderLog = typeof reminderLog.$inferInsert;

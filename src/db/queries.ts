@@ -5,6 +5,7 @@ import { db } from "./index";
 import {
   checkins,
   habits,
+  reminderLog,
   reminders,
   settings,
   type Checkin,
@@ -87,6 +88,15 @@ export async function getCheckinsForRange(
     .orderBy(asc(checkins.date));
 }
 
+/** Returns the full check-in history of a habit, oldest first. */
+export async function getCheckinsForHabit(habitId: number): Promise<Checkin[]> {
+  return db
+    .select()
+    .from(checkins)
+    .where(eq(checkins.habitId, habitId))
+    .orderBy(asc(checkins.date));
+}
+
 /** Inserts a check-in, or removes the existing one when it already exists. */
 export async function toggleCheckin(
   habitId: number,
@@ -159,7 +169,51 @@ export async function createReminder(data: NewReminder): Promise<Reminder> {
   return reminder;
 }
 
+/** Lists every reminder regardless of habit or enabled state. */
+export async function listReminders(): Promise<Reminder[]> {
+  return db.select().from(reminders).orderBy(asc(reminders.time));
+}
+
+/** Deletes a reminder; returns true when a row was actually removed. */
+export async function deleteReminder(id: number): Promise<boolean> {
+  const result = await db.delete(reminders).where(eq(reminders.id, id)).run();
+  return result.changes > 0;
+}
+
+/** Enables or disables a reminder. */
+export async function updateReminderEnabled(id: number, enabled: boolean): Promise<void> {
+  await db.update(reminders).set({ enabled }).where(eq(reminders.id, id));
+}
+
+/* ---------------------------- reminder log ---------------------------- */
+
+/**
+ * Claims the one-send slot for a habit on a day: inserts the log row and
+ * reports whether this call was the one that claimed it. Later calls with
+ * the same (habitId, date) are no-ops that return false.
+ */
+export async function markReminderSent(habitId: number, date: string): Promise<boolean> {
+  const result = await db
+    .insert(reminderLog)
+    .values({ habitId, date })
+    .onConflictDoNothing()
+    .run();
+  return result.changes > 0;
+}
+
+/** Releases a claimed slot (used when the delivery itself failed). */
+export async function unmarkReminderSent(habitId: number, date: string): Promise<boolean> {
+  const result = await db
+    .delete(reminderLog)
+    .where(and(eq(reminderLog.habitId, habitId), eq(reminderLog.date, date)))
+    .run();
+  return result.changes > 0;
+}
+
 /* ------------------------------- settings ----------------------------- */
+
+/** Settings key under which the bound Telegram chat id is stored. */
+export const TELEGRAM_CHAT_ID_KEY = "telegramChatId";
 
 export async function getSetting<T>(key: string): Promise<T | undefined> {
   const [row] = await db.select().from(settings).where(eq(settings.key, key));
@@ -172,6 +226,16 @@ export async function upsertSetting<T>(key: string, value: T): Promise<void> {
     .insert(settings)
     .values({ key, value })
     .onConflictDoUpdate({ target: settings.key, set: { value } });
+}
+
+/** Returns the chat id the bot is bound to, if any. */
+export async function getTelegramChatId(): Promise<number | undefined> {
+  return getSetting<number>(TELEGRAM_CHAT_ID_KEY);
+}
+
+/** Binds the bot to a chat id. */
+export async function setTelegramChatId(chatId: number): Promise<void> {
+  await upsertSetting(TELEGRAM_CHAT_ID_KEY, chatId);
 }
 
 /* ------------------------------- helpers ------------------------------ */
