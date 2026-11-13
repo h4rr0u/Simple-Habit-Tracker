@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { asc, inArray } from "drizzle-orm";
 import { format, startOfDay } from "date-fns";
 
 import { HabitsPageClient, type HabitCardData } from "@/components/habits-page-client";

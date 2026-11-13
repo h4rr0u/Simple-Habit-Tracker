@@ -5,7 +5,7 @@ import {
   motion,
   AnimatePresence,
 } from "framer-motion";
-import { Check, Flame, Plus, Snowflake, Trophy } from "lucide-react";
+import { Flame, Plus, Snowflake, Trophy } from "lucide-react";
 import {
   PolarAngleAxis,
   RadialBar,
@@ -19,7 +19,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,

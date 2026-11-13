@@ -77,10 +77,6 @@ const habitFormSchema = z
 
 export type HabitFormValues = z.infer<typeof habitFormSchema>;
 
-function defaultSchedule(): ScheduleFormValue {
-  return { mode: "daily", daysOfWeek: [], timesPerWeek: 3, intervalDays: 2 };
-}
-
 function scheduleToForm(schedule: Schedule): ScheduleFormValue {
   return {
     mode: schedule.mode,

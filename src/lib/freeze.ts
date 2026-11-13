@@ -44,7 +44,7 @@ export function accrueFreezes(habit: FreezableHabit, now: Date): number {
   // First accrual point strictly after creation: the 1st of the following month.
   let point = startOfDay(new Date(created.getFullYear(), created.getMonth() + 1, 1));
   while (point <= today) {
-    grants++;
+    grants += FREEZES_PER_MONTH;
     point = new Date(point.getFullYear(), point.getMonth() + 1, 1);
   }
 

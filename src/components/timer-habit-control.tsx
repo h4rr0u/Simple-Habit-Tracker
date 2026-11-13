@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pause, Play, Timer } from "lucide-react";
 import { toast } from "sonner";
 
-import { setCheckinValueAction, toggleCheckinAction } from "@/actions/habits";
+import { setCheckinValueAction } from "@/actions/habits";
 import { Button } from "@/components/ui/button";
 import { formatDuration } from "@/lib/habit-ui";
 import type { Checkin, Habit } from "@/db/schema";

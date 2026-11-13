@@ -1,6 +1,5 @@
 import { asc, eq } from "drizzle-orm";
 import Link from "next/link";
-import { format, startOfDay } from "date-fns";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
@@ -49,7 +48,6 @@ export default async function HabitDetailPage({
 
   const schedule = habit.schedule as unknown as Schedule;
   const now = new Date();
-  const today = format(startOfDay(now), "yyyy-MM-dd");
 
   const current = calculateCurrentStreak(rows, schedule, habit.freezeBank);
   const longest = calculateLongestStreak(rows, schedule);

@@ -1,11 +1,9 @@
 "use client";
 
 import { UseFormReturn } from "react-hook-form";
-import { CalendarDays, Repeat, Hash, SlidersHorizontal } from "lucide-react";
 
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -13,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { dowLabel } from "@/lib/habit-ui";
 import { cn } from "@/lib/utils";
 import type { Schedule } from "@/types/schedule";

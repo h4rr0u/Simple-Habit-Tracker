@@ -1,11 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  format,
-  isSameDay,
-  parseISO,
-} from "date-fns";
+import { isSameDay, parseISO } from "date-fns";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { HeatmapWeek } from "@/lib/heatmap";
