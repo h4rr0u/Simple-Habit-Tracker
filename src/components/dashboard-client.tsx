@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { formatSchedule, getHabitIcon } from "@/lib/habit-ui";
+import { checkinTogglePlan, formatSchedule, getHabitIcon } from "@/lib/habit-ui";
 import { cn } from "@/lib/utils";
 import type { Checkin, Habit } from "@/db/schema";
 
@@ -82,7 +82,33 @@ export function DashboardClient({
     );
   };
 
-  const handleToggle = async (habit: Habit) => {
+  const handleToggle = async (habit: Habit, currentlyDone: boolean) => {
+    const plan = checkinTogglePlan(habit, currentlyDone);
+    if (plan.mode === "value") {
+      // Targeted quantitative/timed habits: the checkbox asserts completion,
+      // so record the target value (and clear the day on un-check).
+      const result = await setCheckinValueAction({
+        habitId: habit.id,
+        date: today,
+        value: plan.value,
+      });
+      if (result.ok) {
+        applyResult(
+          habit.id,
+          plan.value != null
+            ? { habitId: habit.id, date: today, value: plan.value, note: null, id: 0, createdAt: new Date() }
+            : null
+        );
+        if (plan.value != null) {
+          toast.success(`"${habit.name}" done!`);
+        } else {
+          toast.info(`"${habit.name}" check-in removed`);
+        }
+      } else {
+        toast.error(result.error);
+      }
+      return;
+    }
     const result = await toggleCheckinAction({ habitId: habit.id, date: today });
     if (result.ok) {
       if (result.data === "checked") {
@@ -170,7 +196,7 @@ export function DashboardClient({
                     >
                       <Checkbox
                         checked={isDone}
-                        onCheckedChange={() => handleToggle(item.habit)}
+                        onCheckedChange={() => handleToggle(item.habit, item.done)}
                         aria-label={`Check in ${item.habit.name}`}
                       />
                     </motion.span>
@@ -308,6 +334,11 @@ function QuantQuickInput({
   onSetValue: (value: number) => void;
 }) {
   const [text, setText] = useState(value ? String(value) : "");
+  // Resync the local mirror when the server-side value changes elsewhere
+  // (e.g. the checkbox asserting the target, or another device).
+  useEffect(() => {
+    setText(value ? String(value) : "");
+  }, [value]);
   const commit = () => {
     const n = Number(text);
     if (text === "" || Number.isNaN(n)) return;
