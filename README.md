@@ -123,6 +123,22 @@ settings) to a single JSON file and import it back later. Import **replaces**
 the current database contents, so keep the exported file safe. This is also
 the way to move your data between machines.
 
+## Settings
+
+### Launch at computer startup (Windows)
+
+In **Settings → System**, the "Launch at computer startup" switch makes the
+tracker start automatically when you log into Windows.
+
+- The switch adds a single entry to **your user's** registry
+  (`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`, name
+  `Habit Tracker`) — no administrator rights and no system-wide changes.
+- You can turn it off the same way in the tracker, or from **Task Manager →
+  Startup apps**.
+- At boot the tracker starts in the background, without a console window
+  (via the hidden `start-hidden.vbs` launcher), and is available at
+  [http://localhost:3000](http://localhost:3000).
+
 ## Scripts
 
 | Command                | What it does                                    |
