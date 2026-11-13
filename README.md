@@ -3,7 +3,7 @@
 A local-first habit tracker with flexible schedules, soft streaks and an optional
 Telegram bot. Everything runs on your machine: SQLite storage, no accounts, no cloud.
 
-![CI](https://github.com/OWNER/habit-tracker/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/h4rr0u/habit-tracker/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522.9-blue)
 

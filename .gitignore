@@ -41,8 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local database
-/data
+# local database (keep .gitkeep so the folder exists after a fresh clone)
+/data/*
+!/data/.gitkeep
 *.db
 *.db-shm
 *.db-wal
