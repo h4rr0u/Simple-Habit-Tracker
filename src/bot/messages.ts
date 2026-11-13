@@ -1,6 +1,7 @@
 import { InlineKeyboard } from "grammy";
 
 import { formatSchedule } from "@/lib/habit-ui";
+import { meetsHabitTarget } from "@/lib/habit-target";
 import type { Checkin, Habit } from "@/db/schema";
 import type { DueReminder } from "@/lib/reminders";
 
@@ -90,13 +91,7 @@ function statusSuffix(habit: Habit, todayCheckin: Checkin | null): string {
 /** Whether today's check-in satisfies the habit (mirrors the web UI logic). */
 export function isHabitDone(habit: Habit, todayCheckin: Checkin | null): boolean {
   if (!todayCheckin) return false;
-  if (habit.type === "quantitative" || habit.type === "timed") {
-    if (!habit.targetValue) return true;
-    // quantitative counts in units; timed stores seconds but targets minutes.
-    const target = habit.type === "timed" ? habit.targetValue * 60 : habit.targetValue;
-    return (todayCheckin.value ?? 0) >= target;
-  }
-  return true;
+  return meetsHabitTarget(habit, todayCheckin.value);
 }
 
 /** Button label for a habit's action row. */

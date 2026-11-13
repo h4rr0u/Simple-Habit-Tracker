@@ -5,6 +5,7 @@ import { DashboardClient } from "@/components/dashboard-client";
 import { db } from "@/db";
 import { checkins } from "@/db/schema";
 import { listHabits } from "@/db/queries";
+import { meetsHabitTarget } from "@/lib/habit-target";
 import { calculateCurrentStreak } from "@/lib/streaks";
 import { isHabitDueOn, type Schedule } from "@/types/schedule";
 
@@ -37,13 +38,7 @@ export default async function DashboardPage() {
       const streakResult = calculateCurrentStreak(history, schedule, habit.freezeBank);
 
       // A habit counts as done today when a check-in exists and meets its target.
-      const done = (() => {
-        if (!todayCheckin) return false;
-        if (habit.type === "quantitative" || habit.type === "timed") {
-          return habit.targetValue ? (todayCheckin.value ?? 0) >= habit.targetValue : true;
-        }
-        return true;
-      })();
+      const done = todayCheckin ? meetsHabitTarget(habit, todayCheckin.value) : false;
 
       return {
         habit,

@@ -40,7 +40,7 @@ describe("checkinTogglePlan", () => {
 
   it("records the target value when marking an incomplete targeted habit done", () => {
     const h = habit({ type: "timed", targetValue: 30 });
-    expect(checkinTogglePlan(h, false)).toEqual({ mode: "value", value: 30 });
+    expect(checkinTogglePlan(h, false)).toEqual({ mode: "value", value: 1800 });
   });
 
   it("records the target value for targeted quantitative habits too", () => {

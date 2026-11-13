@@ -1,6 +1,7 @@
 import { eachDayOfInterval, format, startOfDay, startOfWeek } from "date-fns";
 
 import type { Checkin, Habit } from "@/db/schema";
+import { meetsHabitTarget } from "@/lib/habit-target";
 import type {
   AnalyticsRecords,
   DailyCompletionPoint,
@@ -49,10 +50,7 @@ export interface DayContribution {
 
 /** True when a check-in value satisfies the habit's target. */
 function meetsTarget(habit: Habit, value: number | null | undefined): boolean {
-  if (habit.type === "quantitative" || habit.type === "timed") {
-    return habit.targetValue ? (value ?? 0) >= habit.targetValue : true;
-  }
-  return true;
+  return meetsHabitTarget(habit, value ?? null);
 }
 
 /** Parses an ISO day key back into a local Date (midnight). */

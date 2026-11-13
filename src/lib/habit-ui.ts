@@ -36,6 +36,7 @@ import {
 
 import type { Schedule } from "@/types/schedule";
 import type { Habit } from "@/db/schema";
+import { targetUnits } from "@/lib/habit-target";
 
 /**
  * Shared UI constants and helpers for habit presentation: icon set, color
@@ -231,11 +232,7 @@ export function checkinTogglePlan(
   habit: Habit,
   currentlyDone: boolean
 ): { mode: "toggle" } | { mode: "value"; value: number | null } {
-  const target = habit.targetValue;
-  const targeted =
-    (habit.type === "quantitative" || habit.type === "timed") &&
-    target != null &&
-    target > 0;
-  if (!targeted) return { mode: "toggle" };
+  const target = targetUnits(habit);
+  if (target == null) return { mode: "toggle" };
   return { mode: "value", value: currentlyDone ? null : target };
 }

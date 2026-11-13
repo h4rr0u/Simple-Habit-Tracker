@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { setCheckinValueAction } from "@/actions/habits";
 import { Button } from "@/components/ui/button";
+import { meetsHabitTarget } from "@/lib/habit-target";
 import { formatDuration } from "@/lib/habit-ui";
 import type { Checkin, Habit } from "@/db/schema";
 
@@ -64,7 +65,7 @@ export function TimerHabitControl({ habit, today, todayCheckin }: TimerHabitCont
     }
   };
 
-  const done = habit.targetValue ? elapsed >= habit.targetValue : false;
+  const done = elapsed > 0 && meetsHabitTarget(habit, elapsed);
 
   return (
     <div className="flex w-full items-center gap-2">

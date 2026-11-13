@@ -27,6 +27,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { checkinTogglePlan, formatSchedule, getHabitIcon } from "@/lib/habit-ui";
+import { meetsHabitTarget } from "@/lib/habit-target";
 import { cn } from "@/lib/utils";
 import type { Checkin, Habit } from "@/db/schema";
 
@@ -68,15 +69,7 @@ export function DashboardClient({
     setItems((prev) =>
       prev.map((item) => {
         if (item.habit.id !== habitId) return item;
-        const done = (() => {
-          if (!checkin) return false;
-          if (item.habit.type === "quantitative" || item.habit.type === "timed") {
-            return item.habit.targetValue
-              ? (checkin.value ?? 0) >= item.habit.targetValue
-              : true;
-          }
-          return true;
-        })();
+        const done = checkin ? meetsHabitTarget(item.habit, checkin.value) : false;
         return { ...item, todayCheckin: checkin, done };
       })
     );
@@ -333,16 +326,24 @@ function QuantQuickInput({
   value: number;
   onSetValue: (value: number) => void;
 }) {
-  const [text, setText] = useState(value ? String(value) : "");
+  // Timed habits store seconds but are entered in minutes (targets included).
+  const isTimed = habit.type === "timed";
+  const toInput = (stored: number) => (isTimed ? Math.round(stored / 60) : stored);
+  const fromInput = (input: number) => (isTimed ? input * 60 : input);
+
+  const [text, setText] = useState(value ? String(toInput(value)) : "");
+
   // Resync the local mirror when the server-side value changes elsewhere
   // (e.g. the checkbox asserting the target, or another device).
   useEffect(() => {
-    setText(value ? String(value) : "");
-  }, [value]);
+    setText(value ? String(toInput(value)) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toInput derives from isTimed
+  }, [value, isTimed]);
+
   const commit = () => {
     const n = Number(text);
     if (text === "" || Number.isNaN(n)) return;
-    onSetValue(Math.floor(n));
+    onSetValue(fromInput(Math.floor(n)));
   };
   return (
     <div className="flex items-center gap-1">
@@ -356,12 +357,13 @@ function QuantQuickInput({
           if (e.key === "Enter") commit();
         }}
         placeholder={habit.targetValue ? String(habit.targetValue) : "0"}
+        aria-label={`${habit.name} ${isTimed ? "minutes" : "value"}`}
       />
       <Button
         variant="outline"
         size="icon-xs"
         aria-label={`Add one to ${habit.name}`}
-        onClick={() => onSetValue(value + 1)}
+        onClick={() => onSetValue(value + fromInput(1))}
       >
         <Plus />
       </Button>

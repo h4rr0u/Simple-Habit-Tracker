@@ -96,9 +96,12 @@ const setCheckinValueSchema = z.object({
 
 /* ------------------------------- helpers ------------------------------ */
 
-/** Revalidates the dashboard after any habit mutation. */
+/** Revalidates every habit view after any habit or check-in mutation. */
 function revalidateDashboard(): void {
   revalidatePath("/");
+  revalidatePath("/habits");
+  revalidatePath("/habits/[id]", "page");
+  revalidatePath("/analytics");
 }
 
 /* ------------------------------- actions ------------------------------ */

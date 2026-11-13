@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { TimerHabitControl } from "@/components/timer-habit-control";
+import { meetsHabitTarget } from "@/lib/habit-target";
 import { formatSchedule, getHabitIcon } from "@/lib/habit-ui";
 import { cn } from "@/lib/utils";
 import type { Checkin, Habit } from "@/db/schema";
@@ -56,10 +57,8 @@ export function HabitCard({
   /** Whether today's check-in satisfies the habit (presence for binary/negative, target for others). */
   const done = useMemo(() => {
     if (!todayCheckin) return false;
-    if (habit.type === "binary" || habit.type === "negative") return true;
-    if (!habit.targetValue) return true;
-    return (todayCheckin.value ?? 0) >= habit.targetValue;
-  }, [todayCheckin, habit.type, habit.targetValue]);
+    return meetsHabitTarget(habit, todayCheckin.value);
+  }, [todayCheckin, habit]);
 
   const handleToggle = async () => {
     setPending(true);
@@ -134,6 +133,7 @@ export function HabitCard({
             {streak}
           </Badge>
           {isDueToday && !done && <Badge variant="outline">Due today</Badge>}
+          {isDueToday && done && <Badge variant="secondary">Done</Badge>}
         </CardAction>
       </CardHeader>
       <CardContent className="mt-auto flex items-center gap-2">
