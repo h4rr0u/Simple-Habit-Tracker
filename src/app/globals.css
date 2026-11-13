@@ -117,6 +117,118 @@
   --sidebar-ring: oklch(0.623 0.214 259.815);
 }
 
+/* ------------------------------ accents ------------------------------ */
+/* Accent themes are toggled by a data-accent attribute on <html>, applied
+   from src/lib/appearance.ts. Blue is the default and needs no overrides.
+   Light values live on the bare attribute selector; .dark compounds it. */
+
+[data-accent="violet"] {
+  --primary: oklch(0.541 0.281 293.009);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.541 0.281 293.009);
+  --accent: oklch(0.969 0.016 293.756);
+  --accent-foreground: oklch(0.38 0.189 293.745);
+  --chart-1: oklch(0.541 0.281 293.009);
+  --chart-2: oklch(0.606 0.25 292.717);
+  --chart-3: oklch(0.491 0.27 292.581);
+  --chart-4: oklch(0.432 0.232 292.759);
+  --chart-5: oklch(0.38 0.189 293.745);
+  --sidebar-primary: oklch(0.541 0.281 293.009);
+  --sidebar-accent: oklch(0.943 0.034 292.452);
+  --sidebar-accent-foreground: oklch(0.38 0.189 293.745);
+  --sidebar-ring: oklch(0.541 0.281 293.009);
+}
+
+.dark[data-accent="violet"] {
+  --primary: oklch(0.606 0.25 292.717);
+  --ring: oklch(0.606 0.25 292.717);
+  --accent: oklch(0.38 0.12 293.745);
+  --accent-foreground: oklch(0.985 0 0);
+  --chart-1: oklch(0.606 0.25 292.717);
+  --chart-2: oklch(0.541 0.281 293.009);
+  --chart-3: oklch(0.491 0.27 292.581);
+  --chart-4: oklch(0.432 0.232 292.759);
+  --chart-5: oklch(0.38 0.189 293.745);
+  --sidebar-primary: oklch(0.606 0.25 292.717);
+  --sidebar-accent: oklch(0.38 0.12 293.745);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.606 0.25 292.717);
+}
+
+[data-accent="emerald"] {
+  --primary: oklch(0.596 0.145 163.225);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.596 0.145 163.225);
+  --accent: oklch(0.979 0.021 166.113);
+  --accent-foreground: oklch(0.378 0.077 168.94);
+  --chart-1: oklch(0.596 0.145 163.225);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.508 0.118 165.612);
+  --chart-4: oklch(0.432 0.095 166.913);
+  --chart-5: oklch(0.378 0.077 168.94);
+  --sidebar-primary: oklch(0.596 0.145 163.225);
+  --sidebar-accent: oklch(0.95 0.052 163.051);
+  --sidebar-accent-foreground: oklch(0.378 0.077 168.94);
+  --sidebar-ring: oklch(0.596 0.145 163.225);
+}
+
+.dark[data-accent="emerald"] {
+  --primary: oklch(0.696 0.17 162.48);
+  --ring: oklch(0.696 0.17 162.48);
+  --accent: oklch(0.38 0.08 168.94);
+  --accent-foreground: oklch(0.985 0 0);
+  --chart-1: oklch(0.696 0.17 162.48);
+  --chart-2: oklch(0.596 0.145 163.225);
+  --chart-3: oklch(0.508 0.118 165.612);
+  --chart-4: oklch(0.432 0.095 166.913);
+  --chart-5: oklch(0.378 0.077 168.94);
+  --sidebar-primary: oklch(0.696 0.17 162.48);
+  --sidebar-accent: oklch(0.38 0.08 168.94);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.696 0.17 162.48);
+}
+
+[data-accent="rose"] {
+  --primary: oklch(0.586 0.253 17.585);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.586 0.253 17.585);
+  --accent: oklch(0.969 0.015 12.422);
+  --accent-foreground: oklch(0.412 0.17 15.722);
+  --chart-1: oklch(0.586 0.253 17.585);
+  --chart-2: oklch(0.645 0.246 16.439);
+  --chart-3: oklch(0.514 0.222 16.935);
+  --chart-4: oklch(0.455 0.188 13.697);
+  --chart-5: oklch(0.412 0.17 15.722);
+  --sidebar-primary: oklch(0.586 0.253 17.585);
+  --sidebar-accent: oklch(0.941 0.03 12.58);
+  --sidebar-accent-foreground: oklch(0.412 0.17 15.722);
+  --sidebar-ring: oklch(0.586 0.253 17.585);
+}
+
+.dark[data-accent="rose"] {
+  --primary: oklch(0.645 0.246 16.439);
+  --ring: oklch(0.645 0.246 16.439);
+  --accent: oklch(0.38 0.11 15.722);
+  --accent-foreground: oklch(0.985 0 0);
+  --chart-1: oklch(0.645 0.246 16.439);
+  --chart-2: oklch(0.586 0.253 17.585);
+  --chart-3: oklch(0.514 0.222 16.935);
+  --chart-4: oklch(0.455 0.188 13.697);
+  --chart-5: oklch(0.412 0.17 15.722);
+  --sidebar-primary: oklch(0.645 0.246 16.439);
+  --sidebar-accent: oklch(0.38 0.11 15.722);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.645 0.246 16.439);
+}
+
+/* ------------------------------ density ------------------------------- */
+/* Comfortable is the default. Compact scales the root font size down, so
+   every rem-based padding, gap and text shrinks together coherently. */
+
+html[data-density="compact"] {
+  font-size: 93.75%;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

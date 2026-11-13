@@ -14,6 +14,17 @@ export const metadata = {
   description: "Local-first habit tracker with flexible schedules",
 };
 
+/**
+ * Applies the stored appearance preferences (accent color, density) before
+ * first paint. Keep the storage keys in sync with src/lib/appearance.ts.
+ */
+const appearanceInitScript = `try{
+var a=localStorage.getItem("habit-tracker:accent");
+if(a&&a!=="blue")document.documentElement.setAttribute("data-accent",a);
+var d=localStorage.getItem("habit-tracker:density");
+if(d==="compact")document.documentElement.setAttribute("data-density","compact");
+}catch(e){}`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -22,6 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
+        <script dangerouslySetInnerHTML={{ __html: appearanceInitScript }} />
         <Providers>
           <SidebarProvider>
             <AppSidebar />

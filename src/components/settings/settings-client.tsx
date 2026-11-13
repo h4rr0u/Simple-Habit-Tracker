@@ -10,6 +10,8 @@ import {
   saveChatIdAction,
   toggleReminderAction,
 } from "@/actions/settings";
+import { AppearanceCard } from "@/components/settings/appearance-card";
+import { DataCard } from "@/components/settings/data-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,9 +72,11 @@ export function SettingsClient({ chatId, habits, reminders }: SettingsClientProp
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
-          Telegram integration and habit reminders.
+          Appearance, data backups, Telegram integration and habit reminders.
         </p>
       </div>
+      <AppearanceCard />
+      <DataCard />
       <TelegramCard chatId={chatId} />
       <RemindersCard habits={habits} reminders={reminders} />
     </div>
