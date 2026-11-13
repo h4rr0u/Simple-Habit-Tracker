@@ -33,13 +33,33 @@ Next.js 15 (App Router) · TypeScript · Tailwind CSS 4 + shadcn/ui · SQLite
 
 Requirements: **Node.js ≥ 22.9** and npm.
 
+### Quick start — one command for everything
+
 ```bash
 git clone <repository-url>
 cd habit-tracker
 npm install
 npm run db:migrate   # create the SQLite database in ./data
-npm run dev          # http://localhost:3000
+npm run start:all    # web (+ optional bot & reminders) in one terminal
 ```
+
+`npm run start:all` launches the whole stack in a single terminal (on Windows
+you can also just double-click `start.bat`). The launcher reads `.env` and
+decides what to start:
+
+- **Without Telegram** — leave `TELEGRAM_BOT_TOKEN` empty (or don't create a
+  `.env` at all). The launcher prints a yellow warning and runs only the web
+  app at http://localhost:3000. The tracker works, just without reminders.
+- **With Telegram** — copy `.env.example` to `.env` and fill in
+  `TELEGRAM_BOT_TOKEN=...`. The launcher then also starts the bot and the
+  reminder cron.
+
+Output is prefixed with colored tags so one terminal stays readable:
+`[web]`, `[bot]`, `[cron]`. `Ctrl+C` (or closing the window) stops every
+process the launcher started.
+
+Prefer separate terminals? The individual scripts still work as before:
+`npm run dev`, `npm run bot:dev`, `npm run reminders:dev`.
 
 The database is created on first migrate; no other configuration is required.
 The web app itself never needs a Telegram token — the bot is fully optional.
@@ -78,8 +98,10 @@ Streaks are **soft**:
    ```
    TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
    ```
-5. Start the bot and the reminder scheduler (two separate processes):
+5. Start everything with the launcher — or run the two processes separately:
    ```bash
+   npm run start:all      # web + bot + reminders in one terminal
+   # or, in separate terminals:
    npm run bot:dev        # long polling bot
    npm run reminders:dev  # cron that sends due reminders every minute
    ```
@@ -106,6 +128,7 @@ the way to move your data between machines.
 | Command                | What it does                                    |
 | ---------------------- | ----------------------------------------------- |
 | `npm run dev`          | Web app (Next.js dev server)                     |
+| `npm run start:all`    | Everything at once: web + bot + reminders (single terminal, Ctrl+C stops all) |
 | `npm run build`        | Production build                                 |
 | `npm run start`        | Serve the production build                       |
 | `npm run test`         | Run unit tests (Vitest)                          |
@@ -126,7 +149,7 @@ src/
   lib/        # Pure logic: streaks, freezes, schedules, analytics
   types/      # Shared types
   bot/        # Telegram bot (grammY)
-scripts/      # Standalone processes (reminder cron)
+scripts/      # Standalone processes (reminder cron, dev launcher start.mjs)
 drizzle/      # SQL migrations
 ```
 
