@@ -3,7 +3,7 @@ import { format, startOfDay } from "date-fns";
 
 import { HabitsPageClient, type HabitCardData } from "@/components/habits-page-client";
 import { db } from "@/db";
-import { checkins } from "@/db/schema";
+import { checkins, type Checkin } from "@/db/schema";
 import { listHabits, getFreezeHistories } from "@/db/queries";
 import { buildCompletionCheckins, isHabitDueOnDate } from "@/lib/habit-target";
 import { calculateCurrentStreak } from "@/lib/streaks";
@@ -31,9 +31,17 @@ export default async function HabitsPage() {
         .orderBy(asc(checkins.date))
     : [];
 
+  // Group once instead of filtering the whole list per habit.
+  const checkinsByHabit = new Map<number, Checkin[]>();
+  for (const checkin of allCheckins) {
+    const bucket = checkinsByHabit.get(checkin.habitId);
+    if (bucket) bucket.push(checkin);
+    else checkinsByHabit.set(checkin.habitId, [checkin]);
+  }
+
   const cards: HabitCardData[] = allHabits.map((habit) => {
     const schedule = habit.schedule as unknown as Schedule;
-    const history = allCheckins.filter((c) => c.habitId === habit.id);
+    const history = checkinsByHabit.get(habit.id) ?? [];
     const completion = buildCompletionCheckins(habit, history, now);
     const streakResult = calculateCurrentStreak(
       completion,

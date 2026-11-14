@@ -1,13 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Suspense } from "react";
 
 import { AnalyticsFilters } from "@/components/analytics/analytics-filters";
-import { AverageRadialChart } from "@/components/analytics/average-radial-chart";
 import { formatPercent } from "@/components/analytics/chart-theme";
-import { CompletionLineChart } from "@/components/analytics/completion-line-chart";
-import { WeekdayBarChart } from "@/components/analytics/weekday-bar-chart";
 import { YearHeatmap } from "@/components/analytics/year-heatmap";
 import { useLanguage, type TranslationKey } from "@/components/language-provider";
 import { TranslatedHeading } from "@/components/translated-heading";
@@ -24,6 +22,34 @@ import type {
   HabitRecordStat,
   HabitSummary,
 } from "@/types/analytics";
+
+/**
+ * Recharts is heavy and only needed on this page, so the charts are loaded as
+ * client-only chunks instead of being part of the initial analytics bundle.
+ */
+const CompletionLineChart = dynamic(
+  () =>
+    import("@/components/analytics/completion-line-chart").then(
+      (mod) => mod.CompletionLineChart
+    ),
+  { ssr: false, loading: () => <div className="h-60" /> }
+);
+
+const AverageRadialChart = dynamic(
+  () =>
+    import("@/components/analytics/average-radial-chart").then(
+      (mod) => mod.AverageRadialChart
+    ),
+  { ssr: false, loading: () => <div className="mx-auto h-60 w-full max-w-60" /> }
+);
+
+const WeekdayBarChart = dynamic(
+  () =>
+    import("@/components/analytics/weekday-bar-chart").then(
+      (mod) => mod.WeekdayBarChart
+    ),
+  { ssr: false, loading: () => <div className="h-60" /> }
+);
 
 /**
  * Client shell for /analytics: the page is a Server Component that aggregates

@@ -13,8 +13,8 @@ import {
 
 import { useLanguage, type TranslationKey } from "@/components/language-provider";
 import type { WeekdayCompletionPoint } from "@/types/analytics";
+import { ChartEmpty } from "./chart-empty";
 import { AXIS_TICK, CHART_COLORS, SERIES_COLORS, TOOLTIP_STYLE } from "./chart-theme";
-import { ChartEmpty } from "./completion-line-chart";
 
 /** Completion rate aggregated by weekday ("I slip on Wednesdays"). */
 

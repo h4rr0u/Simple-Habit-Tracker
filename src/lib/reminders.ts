@@ -1,9 +1,9 @@
 import {
-  getCheckinsForRange,
+  getCheckinsForHabitsOnDate,
   getHabitSchedule,
-  getRemindersForHabit,
-  listHabits,
+  getReminderCandidatesAt,
 } from "@/db/queries";
+import type { Checkin, Habit, Reminder } from "@/db/schema";
 import { isHabitDayComplete } from "@/lib/habit-target";
 import { isHabitDueOn, type Schedule } from "@/types/schedule";
 
@@ -52,20 +52,41 @@ function dayKeyOf(date: Date): string {
 /**
  * Returns enabled reminders that fall due within the minute of `now` for
  * habits that are scheduled today and not yet checked in today.
+ *
+ * Runs in two queries instead of one per habit: a reminder/habit join for the
+ * current minute, then one batched check-in lookup for the involved habits.
  */
 export async function getDueReminders(now: Date = new Date()): Promise<DueReminder[]> {
   const time = timeKeyOf(now);
   const day = dayKeyOf(now);
+  const dayOfWeek = now.getDay();
 
-  const habits = await listHabits({ includeArchived: false });
+  const candidates = await getReminderCandidatesAt(time);
+  if (candidates.length === 0) return [];
+
+  // Group candidates per habit so the schedule/completion work happens once
+  // per habit even when it has several reminders at the same minute.
+  const habitsById = new Map<number, Habit>();
+  const remindersByHabit = new Map<number, Reminder[]>();
+  for (const { habit, reminder } of candidates) {
+    if (!habitsById.has(habit.id)) habitsById.set(habit.id, habit);
+    const bucket = remindersByHabit.get(habit.id);
+    if (bucket) bucket.push(reminder);
+    else remindersByHabit.set(habit.id, [reminder]);
+  }
+
+  const checkins = await getCheckinsForHabitsOnDate([...habitsById.keys()], day);
+  const todayCheckinByHabit = new Map<number, Checkin>();
+  for (const checkin of checkins) {
+    todayCheckinByHabit.set(checkin.habitId, checkin);
+  }
+
   const due: DueReminder[] = [];
-
-  for (const habit of habits) {
+  for (const habit of habitsById.values()) {
     const schedule: Schedule = getHabitSchedule(habit);
     if (!isHabitDueOn(schedule, now, habit.createdAt)) continue;
 
-    const todaysCheckin =
-      (await getCheckinsForRange(habit.id, day, day))[0] ?? null;
+    const todaysCheckin = todayCheckinByHabit.get(habit.id) ?? null;
 
     // A negative habit's check-in is a slip, so it must not be treated as a
     // completed day (isHabitDayComplete would invert the meaning).
@@ -75,10 +96,8 @@ export async function getDueReminders(now: Date = new Date()): Promise<DueRemind
         : isHabitDayComplete(habit, todaysCheckin);
     if (dayComplete) continue;
 
-    const reminders = await getRemindersForHabit(habit.id, { enabledOnly: true });
-    for (const reminder of reminders) {
-      if (reminder.time !== time) continue;
-      if (!reminder.daysOfWeek.includes(now.getDay())) continue;
+    for (const reminder of remindersByHabit.get(habit.id) ?? []) {
+      if (!reminder.daysOfWeek.includes(dayOfWeek)) continue;
       due.push({
         reminderId: reminder.id,
         habitId: habit.id,

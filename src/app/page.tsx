@@ -3,7 +3,7 @@ import { format, startOfDay } from "date-fns";
 
 import { DashboardClient } from "@/components/dashboard-client";
 import { db } from "@/db";
-import { checkins } from "@/db/schema";
+import { checkins, type Checkin } from "@/db/schema";
 import { listHabits, getFreezeHistories } from "@/db/queries";
 import {
   buildCompletionCheckins,
@@ -35,49 +35,46 @@ export default async function DashboardPage() {
         .orderBy(asc(checkins.date))
     : [];
 
-  const todayItems = allHabits
-    .map((habit) => {
-      const schedule = habit.schedule as unknown as Schedule;
-      const history = allCheckins.filter((c) => c.habitId === habit.id);
-      const todayCheckin = history.find((c) => c.date === today) ?? null;
-      const completion = buildCompletionCheckins(habit, history, now);
-      const streakResult = calculateCurrentStreak(
-        completion,
-        schedule,
-        habit.freezeBank,
-        now,
-        habit.createdAt,
-        freezeHistories.get(habit.id)
-      );
+  // Group once instead of filtering the whole list per habit.
+  const checkinsByHabit = new Map<number, Checkin[]>();
+  for (const checkin of allCheckins) {
+    const bucket = checkinsByHabit.get(checkin.habitId);
+    if (bucket) bucket.push(checkin);
+    else checkinsByHabit.set(checkin.habitId, [checkin]);
+  }
 
-      // Negative habits are inverted: a day is complete when no slip exists.
-      const done = isHabitDayComplete(habit, todayCheckin);
+  // One pass over the habits: completion and streak are computed exactly once
+  // and reused by both the today list and the top-streaks block.
+  const computed = allHabits.map((habit) => {
+    const schedule = habit.schedule as unknown as Schedule;
+    const history = checkinsByHabit.get(habit.id) ?? [];
+    const todayCheckin = history.find((c) => c.date === today) ?? null;
+    const completion = buildCompletionCheckins(habit, history, now);
+    const streakResult = calculateCurrentStreak(
+      completion,
+      schedule,
+      habit.freezeBank,
+      now,
+      habit.createdAt,
+      freezeHistories.get(habit.id)
+    );
 
-      return {
-        habit,
-        streak: streakResult.streak,
-        todayCheckin,
-        done,
-        isDueToday: isHabitDueOnDate(habit, now),
-      };
-    })
-    .filter((item) => item.isDueToday);
+    // Negative habits are inverted: a day is complete when no slip exists.
+    const done = isHabitDayComplete(habit, todayCheckin);
 
-  const topStreaks = [...allHabits]
-    .map((habit) => {
-      const schedule = habit.schedule as unknown as Schedule;
-      const history = allCheckins.filter((c) => c.habitId === habit.id);
-      const completion = buildCompletionCheckins(habit, history, now);
-      const streak = calculateCurrentStreak(
-        completion,
-        schedule,
-        habit.freezeBank,
-        now,
-        habit.createdAt,
-        freezeHistories.get(habit.id)
-      );
-      return { habit, streak: streak.streak };
-    })
+    return {
+      habit,
+      streak: streakResult.streak,
+      todayCheckin,
+      done,
+      isDueToday: isHabitDueOnDate(habit, now),
+    };
+  });
+
+  const todayItems = computed.filter((item) => item.isDueToday);
+
+  const topStreaks = computed
+    .map(({ habit, streak }) => ({ habit, streak }))
     .sort((a, b) => b.streak - a.streak)
     .slice(0, 3);
 

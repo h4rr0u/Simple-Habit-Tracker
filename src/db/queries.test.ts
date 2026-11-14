@@ -20,12 +20,15 @@ const dbPath = vi.hoisted(() => {
 
 import { db } from "./index";
 import {
+  archiveHabit,
   claimReminderTap,
   createHabit,
   createReminder,
   deleteReminder,
+  getCheckinsForHabitsOnDate,
   getFreezeHistories,
   getHabitById,
+  getReminderCandidatesAt,
   incrementCheckin,
   listHabits,
   listReminders,
@@ -320,6 +323,77 @@ describe("freeze consumption queries", () => {
     const fetched = await getHabitById(habitId);
     expect(fetched?.freezeBank).toBe(0);
     expect(await db.select().from(settings)).toEqual([]);
+  });
+});
+
+describe("batched reminder queries", () => {
+  async function seedHabit(name: string): Promise<number> {
+    const habit = await createHabit({
+      name,
+      description: null,
+      type: "binary",
+      color: "#3b82f6",
+      icon: null,
+      schedule: { mode: "daily" } as never,
+      targetValue: null,
+      unit: null,
+      freezeBank: 0,
+    });
+    return habit.id;
+  }
+
+  it("joins only enabled reminders of active habits at the requested time", async () => {
+    const activeId = await seedHabit("Active");
+    const archivedId = await seedHabit("Archived");
+    await archiveHabit(archivedId);
+
+    const activeReminder = await createReminder({
+      habitId: activeId,
+      time: "09:00",
+      daysOfWeek: [5],
+      enabled: true,
+    });
+    await createReminder({
+      habitId: activeId,
+      time: "10:00",
+      daysOfWeek: [5],
+      enabled: true,
+    });
+    await createReminder({
+      habitId: activeId,
+      time: "09:00",
+      daysOfWeek: [5],
+      enabled: false,
+    });
+    await createReminder({
+      habitId: archivedId,
+      time: "09:00",
+      daysOfWeek: [5],
+      enabled: true,
+    });
+
+    const candidates = await getReminderCandidatesAt("09:00");
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]?.habit.id).toBe(activeId);
+    expect(candidates[0]?.reminder.id).toBe(activeReminder.id);
+  });
+
+  it("fetches check-ins for several habits on one date", async () => {
+    const first = await seedHabit("First");
+    const second = await seedHabit("Second");
+    const third = await seedHabit("Third");
+    await toggleCheckin(first, "2026-11-13");
+    await toggleCheckin(second, "2026-11-13");
+    await toggleCheckin(third, "2026-11-12");
+
+    const rows = await getCheckinsForHabitsOnDate(
+      [first, second, third],
+      "2026-11-13"
+    );
+    expect(rows.map((row) => row.habitId).sort()).toEqual([first, second].sort());
+
+    await expect(getCheckinsForHabitsOnDate([], "2026-11-13")).resolves.toEqual([]);
   });
 });
 

@@ -1,5 +1,5 @@
 import { format, startOfDay } from "date-fns";
-import { and, asc, between, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, between, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { accrueFreezesSince } from "@/lib/freeze";
 import { buildCompletionCheckins } from "@/lib/habit-target";
@@ -321,6 +321,21 @@ export async function getCheckinsForRange(
     .orderBy(asc(checkins.date));
 }
 
+/**
+ * Returns the check-ins of several habits for one ISO date (YYYY-MM-DD).
+ * Used by the reminder scheduler to avoid a per-habit query.
+ */
+export async function getCheckinsForHabitsOnDate(
+  habitIds: number[],
+  date: string
+): Promise<Checkin[]> {
+  if (habitIds.length === 0) return [];
+  return db
+    .select()
+    .from(checkins)
+    .where(and(inArray(checkins.habitId, habitIds), eq(checkins.date, date)));
+}
+
 /** Returns the full check-in history of a habit, oldest first. */
 export async function getCheckinsForHabit(habitId: number): Promise<Checkin[]> {
   return db
@@ -447,6 +462,29 @@ export async function upsertCheckin(
 }
 
 /* ------------------------------ reminders ----------------------------- */
+
+/**
+ * Reminder/habit pairs that could fire at `time` (HH:mm): enabled reminders
+ * whose stored time matches, joined with their active (non-archived) habit.
+ *
+ * Weekday filtering is left to the caller, since `daysOfWeek` is JSON.
+ */
+export async function getReminderCandidatesAt(
+  time: string
+): Promise<Array<{ habit: Habit; reminder: Reminder }>> {
+  return db
+    .select({ habit: habits, reminder: reminders })
+    .from(reminders)
+    .innerJoin(habits, eq(reminders.habitId, habits.id))
+    .where(
+      and(
+        eq(reminders.enabled, true),
+        eq(reminders.time, time),
+        isNull(habits.archivedAt)
+      )
+    )
+    .orderBy(asc(habits.createdAt), asc(reminders.time));
+}
 
 export async function getRemindersForHabit(
   habitId: number,

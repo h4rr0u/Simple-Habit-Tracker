@@ -3,8 +3,8 @@
 import { PolarAngleAxis, RadialBar, RadialBarChart, ResponsiveContainer } from "recharts";
 
 import { useLanguage } from "@/components/language-provider";
+import { ChartEmpty } from "./chart-empty";
 import { formatPercent } from "./chart-theme";
-import { ChartEmpty } from "./completion-line-chart";
 
 /** Average completion rate over the selected period, as a radial gauge. */
 

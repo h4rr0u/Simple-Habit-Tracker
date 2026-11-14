@@ -4,12 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Flame, Plus, Snowflake, Trophy } from "lucide-react";
-import {
-  PolarAngleAxis,
-  RadialBar,
-  RadialBarChart,
-  ResponsiveContainer,
-} from "recharts";
 
 import { HabitCheckinControl } from "@/components/habit-checkin-control";
 import { useLanguage } from "@/components/language-provider";
@@ -29,8 +23,12 @@ import type { Checkin, Habit } from "@/db/schema";
 
 /**
  * Dashboard client shell: today list with animated check-off, day progress
- * ring (Recharts RadialBar), freeze bank card and top-3 streaks.
+ * ring (inline SVG, no charting library), freeze bank card and top-3 streaks.
  */
+
+/** Radius of the progress ring inside its 200×200 viewBox. */
+const RING_RADIUS = 85;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 export interface TodayItem {
   habit: Habit;
@@ -80,9 +78,7 @@ export function DashboardClient({
   const localDone = items.filter((i) => i.done).length;
   const localProgress = items.length === 0 ? 0 : localDone / items.length;
 
-  const progressData = [
-    { name: "progress", value: Math.round(localProgress * 100) },
-  ];
+  const progressPercent = Math.round(localProgress * 100);
 
   const todayDescription =
     totalHabits === 0
@@ -232,37 +228,47 @@ export function DashboardClient({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadialBarChart
-                  data={progressData}
-                  innerRadius="70%"
-                  outerRadius="100%"
-                  startAngle={90}
-                  endAngle={-270}
-                >
-                  <defs>
-                    <linearGradient id="dayProgressGradient" x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#38bdf8" />
-                      <stop offset="55%" stopColor="#a78bfa" />
-                      <stop offset="100%" stopColor="#f472b6" />
-                    </linearGradient>
-                  </defs>
-                  <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-                  <RadialBar
-                    dataKey="value"
-                    background={{ fill: "var(--muted)" }}
-                    cornerRadius={12}
-                    fill="url(#dayProgressGradient)"
-                    isAnimationActive={false}
-                  />
-                </RadialBarChart>
-              </ResponsiveContainer>
+            <div className="relative mx-auto h-48 w-48">
+              <svg
+                viewBox="0 0 200 200"
+                className="size-full -rotate-90"
+                role="img"
+                aria-label={t("dashboard.progress")}
+              >
+                <defs>
+                  <linearGradient id="dayProgressGradient" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#38bdf8" />
+                    <stop offset="55%" stopColor="#a78bfa" />
+                    <stop offset="100%" stopColor="#f472b6" />
+                  </linearGradient>
+                </defs>
+                {/* Track */}
+                <circle
+                  cx="100"
+                  cy="100"
+                  r={RING_RADIUS}
+                  fill="none"
+                  stroke="var(--muted)"
+                  strokeWidth="30"
+                />
+                {/* Progress */}
+                <circle
+                  cx="100"
+                  cy="100"
+                  r={RING_RADIUS}
+                  fill="none"
+                  stroke="url(#dayProgressGradient)"
+                  strokeWidth="30"
+                  strokeLinecap={localProgress > 0 ? "round" : "butt"}
+                  strokeDasharray={RING_CIRCUMFERENCE}
+                  strokeDashoffset={RING_CIRCUMFERENCE * (1 - localProgress)}
+                  className="transition-[stroke-dashoffset] duration-500 ease-out"
+                />
+              </svg>
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <p className="text-3xl font-bold tabular-nums">{progressPercent}%</p>
+              </div>
             </div>
-            <p className="-mt-32 text-center text-3xl font-bold tabular-nums">
-              {Math.round(localProgress * 100)}%
-            </p>
-            <div className="mt-24" />
           </CardContent>
         </Card>
       </div>

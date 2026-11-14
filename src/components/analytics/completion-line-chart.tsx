@@ -14,6 +14,7 @@ import {
 
 import { useLanguage } from "@/components/language-provider";
 import type { DailyCompletionPoint } from "@/types/analytics";
+import { ChartEmpty } from "./chart-empty";
 import { AXIS_TICK, CHART_COLORS, TOOLTIP_STYLE } from "./chart-theme";
 
 /** Daily completion rate over the selected period, as a gradient area+line. */
@@ -88,17 +89,6 @@ export function CompletionLineChart({ data, hasData }: CompletionLineChartProps)
           />
         </ComposedChart>
       </ResponsiveContainer>
-    </div>
-  );
-}
-
-/** Shared empty-state placeholder for chart cards. */
-export function ChartEmpty() {
-  const { t } = useLanguage();
-
-  return (
-    <div className="flex h-60 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-      {t("analytics.chart.empty")}
     </div>
   );
 }
