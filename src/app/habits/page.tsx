@@ -5,8 +5,9 @@ import { HabitsPageClient, type HabitCardData } from "@/components/habits-page-c
 import { db } from "@/db";
 import { checkins } from "@/db/schema";
 import { listHabits } from "@/db/queries";
+import { buildCompletionCheckins, isHabitDueOnDate } from "@/lib/habit-target";
 import { calculateCurrentStreak } from "@/lib/streaks";
-import { isHabitDueOn, type Schedule } from "@/types/schedule";
+import type { Schedule } from "@/types/schedule";
 
 /**
  * Habits management page: grid of interactive habit cards with streaks,
@@ -32,9 +33,16 @@ export default async function HabitsPage() {
   const cards: HabitCardData[] = allHabits.map((habit) => {
     const schedule = habit.schedule as unknown as Schedule;
     const history = allCheckins.filter((c) => c.habitId === habit.id);
-    const streakResult = calculateCurrentStreak(history, schedule, habit.freezeBank);
+    const completion = buildCompletionCheckins(habit, history, now);
+    const streakResult = calculateCurrentStreak(
+      completion,
+      schedule,
+      habit.freezeBank,
+      now,
+      habit.createdAt
+    );
     const todayCheckin = history.find((c) => c.date === today) ?? null;
-    const isDueToday = isHabitDueOn(schedule, now);
+    const isDueToday = isHabitDueOnDate(habit, now);
     return {
       habit,
       streak: streakResult.streak,

@@ -5,8 +5,9 @@ import { startReminderCron } from "@/bot/reminders";
 /**
  * Reminder cron runner: evaluates due reminders every minute and delivers
  * them via Telegram. Deduplication is guaranteed by the reminder_log
- * unique (habitId, date) index, so restarting the process mid-minute never
- * sends the same reminder twice.
+ * unique (reminderId, date) index, so restarting the process mid-minute never
+ * sends the same reminder twice while different reminders of the same habit
+ * can still fire at their own times.
  *
  * Run with: npm run reminders:dev
  */

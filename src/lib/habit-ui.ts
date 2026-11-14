@@ -36,6 +36,7 @@ import {
 
 import type { Schedule } from "@/types/schedule";
 import type { Habit } from "@/db/schema";
+import type { TranslationKey, TranslationVars } from "@/components/language-provider";
 import { targetUnits } from "@/lib/habit-target";
 
 /**
@@ -147,63 +148,64 @@ export type HabitTypeValue = "binary" | "quantitative" | "negative" | "timed";
 
 export interface HabitTypeMeta {
   value: HabitTypeValue;
-  label: string;
-  description: string;
 }
 
 export const HABIT_TYPES: HabitTypeMeta[] = [
-  {
-    value: "binary",
-    label: "Binary",
-    description: "Simple done / not done (e.g. meditate)",
-  },
-  {
-    value: "quantitative",
-    label: "Quantitative",
-    description: "Count towards a target (e.g. 8 glasses of water)",
-  },
-  {
-    value: "negative",
-    label: "Negative",
-    description: "Something to avoid — a check-in marks a slip",
-  },
-  {
-    value: "timed",
-    label: "Timed",
-    description: "Time spent towards a goal (e.g. 30 min reading)",
-  },
+  { value: "binary" },
+  { value: "quantitative" },
+  { value: "negative" },
+  { value: "timed" },
 ];
 
 /* ---------------------------- formatting ------------------------------ */
 
-const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** Translation helper accepted by the schedule formatters. */
+export type ScheduleTranslator = (
+  key: TranslationKey,
+  vars?: TranslationVars
+) => string;
+
+const WEEKDAY_KEYS = [
+  "weekday.sun",
+  "weekday.mon",
+  "weekday.tue",
+  "weekday.wed",
+  "weekday.thu",
+  "weekday.fri",
+  "weekday.sat",
+] as const satisfies readonly TranslationKey[];
 
 /** Weekday short label for a 0..6 index (0 = Sunday). */
-export function dowLabel(dayOfWeek: number): string {
-  return DOW_LABELS[dayOfWeek] ?? "";
+export function dowLabel(dayOfWeek: number, t: ScheduleTranslator): string {
+  const key = WEEKDAY_KEYS[dayOfWeek];
+  return key ? t(key) : "";
 }
 
 /** Human-readable schedule summary, e.g. "Every day" / "Mon, Wed, Fri". */
-export function formatSchedule(schedule: Schedule): string {
+export function formatSchedule(schedule: Schedule, t: ScheduleTranslator): string {
   switch (schedule.mode) {
     case "daily":
-      return "Every day";
-    case "weekly":
-      return `${schedule.timesPerWeek ?? 0}× per week`;
+      return t("schedule.everyDay");
+    case "weekly": {
+      const times = schedule.timesPerWeek ?? 0;
+      return times === 1
+        ? t("schedule.oncePerWeek")
+        : t("schedule.timesPerWeek", { count: times });
+    }
     case "specific_days": {
       const days = schedule.daysOfWeek ?? [];
-      if (days.length === 0) return "No days selected";
-      if (days.length === 7) return "Every day";
+      if (days.length === 0) return t("schedule.noDaysSelected");
+      if (days.length === 7) return t("schedule.everyDay");
       return days
         .slice()
         .sort((a, b) => a - b)
-        .map((d) => DOW_LABELS[d])
+        .map((d) => dowLabel(d, t))
         .join(", ");
     }
     case "flexible":
-      return `Every ${schedule.intervalDays ?? 1} day(s)`;
+      return t("schedule.everyNDays", { count: schedule.intervalDays ?? 1 });
     default:
-      return "Custom";
+      return t("schedule.custom");
   }
 }
 

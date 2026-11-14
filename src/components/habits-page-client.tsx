@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 
 import { HabitCard } from "@/components/habit-card";
 import { HabitFormDialog } from "@/components/habit-form-dialog";
+import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import type { Checkin, Habit } from "@/db/schema";
 
@@ -27,19 +28,18 @@ interface HabitsPageClientProps {
 
 export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { t } = useLanguage();
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Habits</h1>
-          <p className="text-muted-foreground">
-            Manage your habits: create, edit and archive.
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("habits.title")}</h1>
+          <p className="text-muted-foreground">{t("habits.subtitle")}</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus data-icon="inline-start" />
-          New habit
+          {t("habits.new")}
         </Button>
       </div>
       <HabitFormDialog open={dialogOpen} onOpenChange={setDialogOpen} />
@@ -47,13 +47,13 @@ export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
       {cards.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-16 text-center">
           <Plus className="size-8 text-muted-foreground" />
-          <p className="font-medium">No habits yet</p>
+          <p className="font-medium">{t("habits.emptyTitle")}</p>
           <p className="text-sm text-muted-foreground">
-            Create your first habit to start tracking.
+            {t("habits.emptyDescription")}
           </p>
           <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
             <Plus data-icon="inline-start" />
-            New habit
+            {t("habits.new")}
           </Button>
         </div>
       ) : (

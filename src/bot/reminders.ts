@@ -8,6 +8,7 @@ import {
   unmarkReminderSent,
 } from "@/db/queries";
 import { getDueReminders } from "@/lib/reminders";
+import { getChatLanguage } from "./language";
 import { buildReminderMessage } from "./messages";
 import { getTodayViews, todayKey } from "./today";
 
@@ -15,10 +16,10 @@ import { getTodayViews, todayKey } from "./today";
  * Reminder delivery for Telegram.
  *
  * Every minute the cron picks up the reminders that are due right now
- * (phase 2's {@link getDueReminders} already filters out checked-in habits),
- * claims the one-send slot per (habitId, date) in `reminder_log`, and sends
- * the message to the bound chat. A claimed slot whose delivery failed is
- * released again so a restarted process can retry.
+ * (phase 2's {@link getDueReminders} already filters out completed habits),
+ * claims the one-send slot per (reminderId, date) in `reminder_log`, and
+ * sends the message to the bound chat. A claimed slot whose delivery failed
+ * is released again so a restarted process can retry.
  */
 
 export interface ReminderSweepResult {
@@ -52,15 +53,16 @@ export async function runReminderSweep(now: Date = new Date()): Promise<Reminder
     return result;
   }
 
-  // Streaks for the due habits (all of them are unchecked, hence in today's view).
+  // Today's view carries streaks and partial progress for the due habits.
   const views = await getTodayViews(now);
   const viewByHabit = new Map(views.map((view) => [view.habit.id, view]));
 
   const api = new Bot(token).api;
   const day = todayKey(now);
+  const language = await getChatLanguage(chatId);
 
   for (const reminder of due) {
-    const claimed = await markReminderSent(reminder.habitId, day);
+    const claimed = await markReminderSent(reminder.reminderId, reminder.habitId, day);
     if (!claimed) {
       console.log(`[reminders] duplicate suppressed for habit ${reminder.habitId} on ${day}`);
       continue;
@@ -71,13 +73,19 @@ export async function runReminderSweep(now: Date = new Date()): Promise<Reminder
     const habit = view?.habit ?? (await getHabitById(reminder.habitId));
     if (!habit) continue;
 
-    const { text, keyboard } = buildReminderMessage(reminder, view?.streak ?? 0, habit);
+    const { text, keyboard } = buildReminderMessage(
+      reminder,
+      view?.streak ?? 0,
+      habit,
+      view?.todayCheckin ?? null,
+      { language }
+    );
     try {
       await api.sendMessage(chatId, text, { parse_mode: "HTML", reply_markup: keyboard });
       result.sent++;
     } catch (error) {
       result.failed++;
-      await unmarkReminderSent(reminder.habitId, day);
+      await unmarkReminderSent(reminder.reminderId, day);
       console.error(`[reminders] failed to send reminder for habit ${reminder.habitId}:`, error);
     }
   }

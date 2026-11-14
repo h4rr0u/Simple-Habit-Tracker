@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { createHabitAction, updateHabitAction } from "@/actions/habits";
+import { notifyHabitMutation } from "@/components/habit-sync";
+import { useLanguage, type TranslationKey } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,7 +28,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { translateActionError } from "@/lib/action-error";
 import { HABIT_COLORS, HABIT_ICONS, HABIT_TYPES, getHabitIcon } from "@/lib/habit-ui";
+import type { HabitTypeValue } from "@/lib/habit-ui";
 import { ScheduleBuilder, type ScheduleFormValue } from "@/components/schedule-builder";
 import type { Habit } from "@/db/schema";
 import type { Schedule } from "@/types/schedule";
@@ -37,45 +41,110 @@ import { cn } from "@/lib/utils";
  * pickers, type selector and the flexible schedule builder.
  */
 
-const habitFormSchema = z
-  .object({
-    name: z.string().trim().min(1, "Name is required").max(100),
-    type: z.enum(["binary", "quantitative", "negative", "timed"]),
-    schedule: z.object({
-      mode: z.enum(["daily", "weekly", "specific_days", "flexible"]),
-      daysOfWeek: z.array(z.number()),
-      timesPerWeek: z.number().min(1).max(7),
-      intervalDays: z.number().min(1),
-    }),
-    /** Kept as string for the input; parsed on submit. */
-    targetValue: z.string(),
-    unit: z.string().max(16),
-    icon: z.string(),
-    color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-  })
-  .superRefine((data, ctx) => {
-    if (data.schedule.mode === "specific_days" && data.schedule.daysOfWeek.length === 0) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["schedule", "daysOfWeek"],
-        message: "Pick at least one day",
-      });
-    }
-    if (
-      (data.type === "quantitative" || data.type === "timed") &&
-      (data.targetValue === "" ||
-        Number.isNaN(Number(data.targetValue)) ||
-        Number(data.targetValue) <= 0)
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["targetValue"],
-        message: "Target must be a positive number",
-      });
-    }
-  });
+/**
+ * Builds the validation schema with translated messages. Rebuilt only when the
+ * language changes, so the memoised resolver stays referentially stable.
+ */
+function createHabitFormSchema(t: (key: TranslationKey) => string) {
+  return z
+    .object({
+      name: z
+        .string()
+        .trim()
+        .min(1, t("habits.form.errors.nameRequired"))
+        .max(100, t("habits.form.errors.nameTooLong")),
+      type: z.enum(["binary", "quantitative", "negative", "timed"]),
+      schedule: z.object({
+        mode: z.enum(["daily", "weekly", "specific_days", "flexible"]),
+        daysOfWeek: z.array(z.number()),
+        // Validated conditionally in `superRefine`: inactive modes must not block
+        // submit with errors the user cannot see.
+        timesPerWeek: z.number(),
+        intervalDays: z.number(),
+      }),
+      /** Kept as string for the input; parsed on submit. */
+      targetValue: z.string(),
+      unit: z.string().trim(),
+      icon: z.string(),
+      color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+    })
+    .superRefine((data, ctx) => {
+      if (data.schedule.mode === "specific_days" && data.schedule.daysOfWeek.length === 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["schedule", "daysOfWeek"],
+          message: t("habits.form.errors.pickDay"),
+        });
+      }
+      if (data.schedule.mode === "weekly") {
+        const quota = data.schedule.timesPerWeek;
+        if (!Number.isInteger(quota) || quota < 1) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["schedule", "timesPerWeek"],
+            message: t("habits.form.errors.minOncePerWeek"),
+          });
+        } else if (quota > 7) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["schedule", "timesPerWeek"],
+            message: t("habits.form.errors.maxSevenPerWeek"),
+          });
+        }
+      }
+      if (data.schedule.mode === "flexible") {
+        if (!Number.isInteger(data.schedule.intervalDays) || data.schedule.intervalDays < 1) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["schedule", "intervalDays"],
+            message: t("habits.form.errors.intervalMin"),
+          });
+        }
+      }
+      if (data.type === "quantitative" || data.type === "timed") {
+        const target = data.targetValue.trim();
+        if (!/^\d+$/.test(target) || Number(target) <= 0) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["targetValue"],
+            message: t("habits.form.errors.targetPositive"),
+          });
+        }
+        if (data.unit.trim().length > 16) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["unit"],
+            message: t("habits.form.errors.unitTooLong"),
+          });
+        }
+      }
+    });
+}
 
-export type HabitFormValues = z.infer<typeof habitFormSchema>;
+export type HabitFormValues = z.infer<ReturnType<typeof createHabitFormSchema>>;
+
+/** Display labels for the habit type picker. */
+const HABIT_TYPE_KEYS: Record<
+  HabitTypeValue,
+  { label: TranslationKey; description: TranslationKey }
+> = {
+  binary: {
+    label: "habits.form.type.binary.label",
+    description: "habits.form.type.binary.description",
+  },
+  quantitative: {
+    label: "habits.form.type.quantitative.label",
+    description: "habits.form.type.quantitative.description",
+  },
+  negative: {
+    label: "habits.form.type.negative.label",
+    description: "habits.form.type.negative.description",
+  },
+  timed: {
+    label: "habits.form.type.timed.label",
+    description: "habits.form.type.timed.description",
+  },
+};
 
 function scheduleToForm(schedule: Schedule): ScheduleFormValue {
   return {
@@ -107,11 +176,18 @@ interface HabitFormDialogProps {
 }
 
 export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogProps) {
+  const { t } = useLanguage();
   const isEdit = Boolean(habit);
+  const habitId = habit?.id ?? null;
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const habitRef = useRef(habit);
+  habitRef.current = habit;
+
+  const schema = useMemo(() => createHabitFormSchema(t), [t]);
 
   const form = useForm<HabitFormValues>({
-    resolver: zodResolver(habitFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       name: habit?.name ?? "",
       type: habit?.type ?? "binary",
@@ -125,22 +201,24 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
     },
   });
 
-  // Reset the form whenever the dialog is re-opened or the target habit changes.
+  // Reset only when the dialog opens or switches to another habit. Depending
+  // on the whole `habit` object would wipe edits whenever an RSC refresh
+  // produced a new object with identical data.
   useEffect(() => {
-    if (open) {
-      form.reset({
-        name: habit?.name ?? "",
-        type: habit?.type ?? "binary",
-        schedule: scheduleToForm(
-          (habit?.schedule as unknown as Schedule | undefined) ?? { mode: "daily" }
-        ),
-        targetValue: habit?.targetValue != null ? String(habit.targetValue) : "",
-        unit: habit?.unit ?? "",
-        icon: habit?.icon ?? "Dumbbell",
-        color: habit?.color ?? HABIT_COLORS[0],
-      });
-    }
-  }, [open, habit, form]);
+    if (!open) return;
+    const current = habitRef.current;
+    form.reset({
+      name: current?.name ?? "",
+      type: current?.type ?? "binary",
+      schedule: scheduleToForm(
+        (current?.schedule as unknown as Schedule | undefined) ?? { mode: "daily" }
+      ),
+      targetValue: current?.targetValue != null ? String(current.targetValue) : "",
+      unit: current?.unit ?? "",
+      icon: current?.icon ?? "Dumbbell",
+      color: current?.color ?? HABIT_COLORS[0],
+    });
+  }, [open, habitId, form]);
 
   const type = form.watch("type");
   const color = form.watch("color");
@@ -148,8 +226,11 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
   const needsTarget = type === "quantitative" || type === "timed";
 
   const onSubmit = form.handleSubmit(async (values) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     try {
+      const unit = values.unit.trim();
       const payload = {
         name: values.name,
         type: values.type,
@@ -158,9 +239,9 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
         schedule: formToSchedule(values.schedule),
         targetValue:
           values.type === "quantitative" || values.type === "timed"
-            ? Number(values.targetValue)
+            ? Number(values.targetValue.trim())
             : null,
-        unit: needsTarget && values.unit ? values.unit : null,
+        unit: needsTarget && unit ? unit : null,
       };
 
       const result = isEdit && habit
@@ -168,14 +249,18 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
         : await createHabitAction(payload);
 
       if (result.ok) {
-        toast.success(isEdit ? "Habit updated" : "Habit created");
+        notifyHabitMutation();
+        toast.success(
+          isEdit ? t("habits.form.updated") : t("habits.form.created")
+        );
         onOpenChange(false);
       } else {
-        toast.error(result.error);
+        toast.error(translateActionError(t, result.error));
       }
     } catch {
-      toast.error("Failed to save habit");
+      toast.error(t("habits.form.saveFailed"));
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   });
@@ -186,23 +271,29 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit habit" : "New habit"}</DialogTitle>
+          <DialogTitle>
+            {isEdit ? t("habits.form.editTitle") : t("habits.form.createTitle")}
+          </DialogTitle>
           <DialogDescription>
             {isEdit
-              ? "Update the habit's details."
-              : "Create a new habit to track."}
+              ? t("habits.form.editDescription")
+              : t("habits.form.createDescription")}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="contents">
+        <form onSubmit={onSubmit} className="contents" aria-busy={submitting}>
           <FieldGroup>
             <Controller
               control={form.control}
               name="name"
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="habit-name">Name</FieldLabel>
-                  <Input id="habit-name" placeholder="e.g. Morning run" {...field} />
+                  <FieldLabel htmlFor="habit-name">{t("habits.form.name")}</FieldLabel>
+                  <Input
+                    id="habit-name"
+                    placeholder={t("habits.form.namePlaceholder")}
+                    {...field}
+                  />
                   {fieldState.error && <FieldError>{fieldState.error.message}</FieldError>}
                 </Field>
               )}
@@ -213,15 +304,16 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
               name="type"
               render={({ field }) => (
                 <Field>
-                  <FieldLabel>Type</FieldLabel>
+                  <FieldLabel>{t("habits.form.type")}</FieldLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {HABIT_TYPES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>
-                          {t.label} — {t.description}
+                      {HABIT_TYPES.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {t(HABIT_TYPE_KEYS[option.value].label)} —{" "}
+                          {t(HABIT_TYPE_KEYS[option.value].description)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -244,9 +336,20 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
                   render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
                       <FieldLabel htmlFor="habit-target">
-                        Target ({type === "timed" ? "minutes" : "units"})
+                        {t(
+                          type === "timed"
+                            ? "habits.form.targetMinutes"
+                            : "habits.form.targetUnits"
+                        )}
                       </FieldLabel>
-                      <Input id="habit-target" type="number" min={1} {...field} />
+                      <Input
+                        id="habit-target"
+                        type="number"
+                        min={1}
+                        step={1}
+                        inputMode="numeric"
+                        {...field}
+                      />
                       {fieldState.error && (
                         <FieldError>{fieldState.error.message}</FieldError>
                       )}
@@ -256,10 +359,17 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
                 <Controller
                   control={form.control}
                   name="unit"
-                  render={({ field }) => (
-                    <Field>
-                      <FieldLabel htmlFor="habit-unit">Unit (optional)</FieldLabel>
-                      <Input id="habit-unit" placeholder="e.g. glasses, pages" {...field} />
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="habit-unit">{t("habits.form.unit")}</FieldLabel>
+                      <Input
+                        id="habit-unit"
+                        placeholder={t("habits.form.unitPlaceholder")}
+                        {...field}
+                      />
+                      {fieldState.error && (
+                        <FieldError>{fieldState.error.message}</FieldError>
+                      )}
                     </Field>
                   )}
                 />
@@ -267,7 +377,7 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
             )}
 
             <Field>
-              <FieldLabel>Icon</FieldLabel>
+              <FieldLabel>{t("habits.form.icon")}</FieldLabel>
               <div className="grid grid-cols-8 gap-1.5">
                 {HABIT_ICONS.map((name) => {
                   const IconComp = getHabitIcon(name);
@@ -293,7 +403,7 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
             </Field>
 
             <Field>
-              <FieldLabel>Color</FieldLabel>
+              <FieldLabel>{t("habits.form.color")}</FieldLabel>
               <div className="flex flex-wrap gap-1.5">
                 {HABIT_COLORS.map((c) => (
                   <button
@@ -313,10 +423,10 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
               </div>
             </Field>
 
-            <div className="flex items-center gap-2 rounded-lg border p-2">
-              <SelectedIcon className="size-4" style={{ color }} />
-              <span className="text-sm">
-                {form.watch("name") || "Habit preview"}
+            <div className="flex min-w-0 items-center gap-2 rounded-lg border p-2">
+              <SelectedIcon className="size-4 shrink-0" style={{ color }} />
+              <span className="min-w-0 flex-1 truncate text-sm">
+                {form.watch("name") || t("habits.form.preview")}
               </span>
             </div>
           </FieldGroup>
@@ -325,12 +435,14 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
             <Button
               type="button"
               variant="outline"
+              disabled={submitting}
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("habits.form.cancel")}
             </Button>
             <Button type="submit" disabled={submitting}>
-              {isEdit ? "Save changes" : "Create habit"}
+              {submitting && <Loader2 className="size-4 animate-spin" />}
+              {isEdit ? t("habits.form.save") : t("habits.form.create")}
             </Button>
           </DialogFooter>
         </form>

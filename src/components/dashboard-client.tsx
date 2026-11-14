@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  motion,
-  AnimatePresence,
-} from "framer-motion";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { Flame, Plus, Snowflake, Trophy } from "lucide-react";
 import {
   PolarAngleAxis,
@@ -12,9 +10,9 @@ import {
   RadialBarChart,
   ResponsiveContainer,
 } from "recharts";
-import { toast } from "sonner";
 
-import { setCheckinValueAction, toggleCheckinAction } from "@/actions/habits";
+import { HabitCheckinControl } from "@/components/habit-checkin-control";
+import { useLanguage } from "@/components/language-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,10 +22,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { checkinTogglePlan, formatSchedule, getHabitIcon } from "@/lib/habit-ui";
-import { meetsHabitTarget } from "@/lib/habit-target";
+import { formatSchedule, getHabitIcon } from "@/lib/habit-ui";
+import { isHabitDayComplete } from "@/lib/habit-target";
 import { cn } from "@/lib/utils";
 import type { Checkin, Habit } from "@/db/schema";
 
@@ -49,6 +45,7 @@ interface DashboardClientProps {
   todayItems: TodayItem[];
   topStreaks: Array<{ habit: Habit; streak: number }>;
   totalFreezes: number;
+  totalHabits: number;
 }
 
 export function DashboardClient({
@@ -56,7 +53,9 @@ export function DashboardClient({
   todayItems,
   topStreaks,
   totalFreezes,
+  totalHabits,
 }: DashboardClientProps) {
+  const { t } = useLanguage();
   // Local mirror so the UI updates instantly without waiting for revalidation,
   // resynced whenever the server sends fresh data.
   const [items, setItems] = useState(todayItems);
@@ -69,105 +68,80 @@ export function DashboardClient({
     setItems((prev) =>
       prev.map((item) => {
         if (item.habit.id !== habitId) return item;
-        const done = checkin ? meetsHabitTarget(item.habit, checkin.value) : false;
-        return { ...item, todayCheckin: checkin, done };
+        return {
+          ...item,
+          todayCheckin: checkin,
+          done: isHabitDayComplete(item.habit, checkin),
+        };
       })
     );
-  };
-
-  const handleToggle = async (habit: Habit, currentlyDone: boolean) => {
-    const plan = checkinTogglePlan(habit, currentlyDone);
-    if (plan.mode === "value") {
-      // Targeted quantitative/timed habits: the checkbox asserts completion,
-      // so record the target value (and clear the day on un-check).
-      const result = await setCheckinValueAction({
-        habitId: habit.id,
-        date: today,
-        value: plan.value,
-      });
-      if (result.ok) {
-        applyResult(
-          habit.id,
-          plan.value != null
-            ? { habitId: habit.id, date: today, value: plan.value, note: null, id: 0, createdAt: new Date() }
-            : null
-        );
-        if (plan.value != null) {
-          toast.success(`"${habit.name}" done!`);
-        } else {
-          toast.info(`"${habit.name}" check-in removed`);
-        }
-      } else {
-        toast.error(result.error);
-      }
-      return;
-    }
-    const result = await toggleCheckinAction({ habitId: habit.id, date: today });
-    if (result.ok) {
-      if (result.data === "checked") {
-        toast.success(`"${habit.name}" done!`);
-        applyResult(habit.id, { habitId: habit.id, date: today, value: null, note: null, id: 0, createdAt: new Date() });
-      } else {
-        applyResult(habit.id, null);
-      }
-    } else {
-      toast.error(result.error);
-    }
-  };
-
-  const handleSetValue = async (habit: Habit, value: number) => {
-    const result = await setCheckinValueAction({
-      habitId: habit.id,
-      date: today,
-      value: value > 0 ? value : null,
-    });
-    if (result.ok) {
-      applyResult(habit.id, value > 0 ? { habitId: habit.id, date: today, value, note: null, id: 0, createdAt: new Date() } : null);
-    } else {
-      toast.error(result.error);
-    }
   };
 
   const localDone = items.filter((i) => i.done).length;
   const localProgress = items.length === 0 ? 0 : localDone / items.length;
 
   const progressData = [
-    { name: "progress", value: Math.round(localProgress * 100), fill: "var(--primary)" },
+    { name: "progress", value: Math.round(localProgress * 100) },
   ];
+
+  const todayDescription =
+    totalHabits === 0
+      ? t("dashboard.createToStart")
+      : items.length === 0
+        ? t("dashboard.noDue")
+        : t("dashboard.doneOf", { done: localDone, total: items.length });
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Today at a glance.</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t("dashboard.title")}</h1>
+        <p className="text-muted-foreground">{t("dashboard.subtitle")}</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Today list */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Today</CardTitle>
-            <CardDescription>
-              {items.length === 0
-                ? "Nothing scheduled for today — enjoy your rest."
-                : `${localDone} of ${items.length} done`}
-            </CardDescription>
+            <CardTitle>{t("dashboard.today")}</CardTitle>
+            <CardDescription>{todayDescription}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             <AnimatePresence initial={false}>
               {items.length === 0 && (
-                <motion.p
+                <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="py-8 text-center text-sm text-muted-foreground"
+                  className="flex flex-col items-center gap-3 py-8 text-center"
                 >
-                  Nothing scheduled for today.
-                </motion.p>
+                  <p className="text-sm text-muted-foreground">
+                    {totalHabits === 0
+                      ? t("dashboard.emptyNoHabits")
+                      : t("dashboard.emptyRest")}
+                  </p>
+                  {totalHabits === 0 && (
+                    <Button asChild size="sm">
+                      <Link href="/habits">
+                        <Plus data-icon="inline-start" />
+                        {t("dashboard.createFirst")}
+                      </Link>
+                    </Button>
+                  )}
+                </motion.div>
               )}
               {items.map((item) => {
                 const Icon = getHabitIcon(item.habit.icon);
                 const isDone = item.done;
+                const isSlipped = item.habit.type === "negative" && item.todayCheckin != null;
+                const quantTarget =
+                  item.habit.type === "quantitative" && item.habit.targetValue != null
+                    ? item.habit.targetValue
+                    : null;
+                const quantValue = Math.max(0, item.todayCheckin?.value ?? 0);
+                const progressPct =
+                  quantTarget != null && quantTarget > 0
+                    ? Math.min(100, Math.round((quantValue / quantTarget) * 100))
+                    : 0;
                 return (
                   <motion.div
                     key={item.habit.id}
@@ -178,46 +152,66 @@ export function DashboardClient({
                     transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     className={cn(
                       "flex items-center gap-3 rounded-lg border p-3 transition-colors",
-                      isDone && "bg-primary/5"
+                      isDone &&
+                        item.habit.type !== "negative" &&
+                        "border-emerald-500/40 bg-emerald-500/5",
+                      isSlipped && "border-destructive/30 bg-destructive/5"
                     )}
                   >
-                    <motion.span
-                      key={`check-${isDone}`}
-                      initial={{ scale: 0.6, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 22 }}
-                    >
-                      <Checkbox
-                        checked={isDone}
-                        onCheckedChange={() => handleToggle(item.habit, item.done)}
-                        aria-label={`Check in ${item.habit.name}`}
-                      />
-                    </motion.span>
                     <Icon className="size-4 shrink-0" style={{ color: item.habit.color }} />
                     <div className="min-w-0 flex-1">
                       <p
                         className={cn(
                           "truncate text-sm font-medium",
-                          isDone && "text-muted-foreground line-through"
+                          isDone && item.habit.type !== "negative" && "text-muted-foreground line-through"
                         )}
                       >
                         {item.habit.name}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {formatSchedule(item.habit.schedule as never)}
+                        {formatSchedule(item.habit.schedule as never, t)}
+                        {item.habit.type === "negative" ? t("dashboard.avoid") : ""}
                       </p>
+                      {quantTarget != null && quantTarget > 0 && (
+                        <>
+                          <p
+                            className={cn(
+                              "mt-0.5 text-xs font-medium tabular-nums",
+                              isDone
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            {quantValue}/{quantTarget}
+                            {item.habit.unit ? ` ${item.habit.unit}` : ""}
+                            {isDone ? t("dashboard.goalReached") : ""}
+                          </p>
+                          <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all",
+                                isDone && "bg-emerald-500"
+                              )}
+                              style={{
+                                width: `${progressPct}%`,
+                                background: isDone ? undefined : item.habit.color,
+                              }}
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                     <Badge variant="secondary" className="gap-1">
                       <Flame className="size-3 text-orange-400" />
                       {item.streak}
                     </Badge>
-                    {(item.habit.type === "quantitative" || item.habit.type === "timed") && (
-                      <QuantQuickInput
-                        habit={item.habit}
-                        value={item.todayCheckin?.value ?? 0}
-                        onSetValue={(v) => handleSetValue(item.habit, v)}
-                      />
-                    )}
+                    <HabitCheckinControl
+                      habit={item.habit}
+                      today={today}
+                      todayCheckin={item.todayCheckin}
+                      variant="dashboard"
+                      onChanged={(checkin) => applyResult(item.habit.id, checkin)}
+                    />
                   </motion.div>
                 );
               })}
@@ -228,9 +222,9 @@ export function DashboardClient({
         {/* Progress ring */}
         <Card>
           <CardHeader>
-            <CardTitle>Day progress</CardTitle>
+            <CardTitle>{t("dashboard.progress")}</CardTitle>
             <CardDescription>
-              {localDone} / {items.length} completed
+              {t("dashboard.completed", { done: localDone, total: items.length })}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -243,12 +237,20 @@ export function DashboardClient({
                   startAngle={90}
                   endAngle={-270}
                 >
+                  <defs>
+                    <linearGradient id="dayProgressGradient" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#38bdf8" />
+                      <stop offset="55%" stopColor="#a78bfa" />
+                      <stop offset="100%" stopColor="#f472b6" />
+                    </linearGradient>
+                  </defs>
                   <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
                   <RadialBar
                     dataKey="value"
                     background={{ fill: "var(--muted)" }}
                     cornerRadius={12}
-                    fill="var(--primary)"
+                    fill="url(#dayProgressGradient)"
+                    isAnimationActive={false}
                   />
                 </RadialBarChart>
               </ResponsiveContainer>
@@ -267,16 +269,14 @@ export function DashboardClient({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Snowflake className="size-4 text-sky-400" />
-              Freezes
+              {t("dashboard.freezes")}
             </CardTitle>
-            <CardDescription>
-              Across all active habits. Next accrual: the 1st of next month.
-            </CardDescription>
+            <CardDescription>{t("dashboard.freezesDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold tabular-nums">{totalFreezes}</p>
             <p className="text-sm text-muted-foreground">
-              available (max 2 per habit, +1 monthly)
+              {t("dashboard.freezesAvailable")}
             </p>
           </CardContent>
         </Card>
@@ -286,12 +286,12 @@ export function DashboardClient({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="size-4 text-amber-400" />
-              Top streaks
+              {t("dashboard.topStreaks")}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {topStreaks.length === 0 && (
-              <p className="text-sm text-muted-foreground">No habits yet.</p>
+              <p className="text-sm text-muted-foreground">{t("dashboard.noHabits")}</p>
             )}
             {topStreaks.map(({ habit, streak }, index) => {
               const Icon = getHabitIcon(habit.icon);
@@ -312,61 +312,6 @@ export function DashboardClient({
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
-}
-
-/** Quick numeric input used for quantitative habits on the dashboard. */
-function QuantQuickInput({
-  habit,
-  value,
-  onSetValue,
-}: {
-  habit: Habit;
-  value: number;
-  onSetValue: (value: number) => void;
-}) {
-  // Timed habits store seconds but are entered in minutes (targets included).
-  const isTimed = habit.type === "timed";
-  const toInput = (stored: number) => (isTimed ? Math.round(stored / 60) : stored);
-  const fromInput = (input: number) => (isTimed ? input * 60 : input);
-
-  const [text, setText] = useState(value ? String(toInput(value)) : "");
-
-  // Resync the local mirror when the server-side value changes elsewhere
-  // (e.g. the checkbox asserting the target, or another device).
-  useEffect(() => {
-    setText(value ? String(toInput(value)) : "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- toInput derives from isTimed
-  }, [value, isTimed]);
-
-  const commit = () => {
-    const n = Number(text);
-    if (text === "" || Number.isNaN(n)) return;
-    onSetValue(fromInput(Math.floor(n)));
-  };
-  return (
-    <div className="flex items-center gap-1">
-      <Input
-        type="number"
-        className="h-7 w-16"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commit();
-        }}
-        placeholder={habit.targetValue ? String(habit.targetValue) : "0"}
-        aria-label={`${habit.name} ${isTimed ? "minutes" : "value"}`}
-      />
-      <Button
-        variant="outline"
-        size="icon-xs"
-        aria-label={`Add one to ${habit.name}`}
-        onClick={() => onSetValue(value + fromInput(1))}
-      >
-        <Plus />
-      </Button>
     </div>
   );
 }

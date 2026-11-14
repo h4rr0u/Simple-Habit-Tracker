@@ -15,6 +15,8 @@ import {
   type AccentId,
   type DensityId,
 } from "@/lib/appearance";
+import { useLanguage } from "@/components/language-provider";
+import type { TranslationKey } from "@/components/language-provider";
 import {
   Card,
   CardContent,
@@ -37,7 +39,25 @@ import { cn } from "@/lib/utils";
  * Preferences are stored in localStorage and applied to <html> instantly.
  */
 
+const ACCENT_LABEL_KEYS: Record<AccentId, TranslationKey> = {
+  blue: "settings.appearance.accent.blue",
+  violet: "settings.appearance.accent.violet",
+  emerald: "settings.appearance.accent.emerald",
+  rose: "settings.appearance.accent.rose",
+};
+
+const DENSITY_LABEL_KEYS: Record<DensityId, TranslationKey> = {
+  comfortable: "settings.appearance.density.comfortable",
+  compact: "settings.appearance.density.compact",
+};
+
+const DENSITY_HINT_KEYS: Record<DensityId, TranslationKey> = {
+  comfortable: "settings.appearance.density.comfortableHint",
+  compact: "settings.appearance.density.compactHint",
+};
+
 export function AppearanceCard() {
+  const { t } = useLanguage();
   const [accent, setAccent] = useState<AccentId>(DEFAULT_ACCENT);
   const [density, setDensity] = useState<DensityId>(DEFAULT_DENSITY);
 
@@ -63,15 +83,13 @@ export function AppearanceCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Palette className="size-5 text-primary" />
-          Appearance
+          {t("settings.appearance.title")}
         </CardTitle>
-        <CardDescription>
-          Accent color and interface density, stored in this browser.
-        </CardDescription>
+        <CardDescription>{t("settings.appearance.description")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label>Accent color</Label>
+          <Label>{t("settings.appearance.accent")}</Label>
           <div className="flex flex-wrap gap-2">
             {ACCENT_OPTIONS.map((option) => (
               <button
@@ -90,14 +108,14 @@ export function AppearanceCard() {
                   className="size-4 rounded-full border border-black/10"
                   style={{ backgroundColor: option.swatch }}
                 />
-                {option.label}
+                {t(ACCENT_LABEL_KEYS[option.id])}
               </button>
             ))}
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="density">Density</Label>
+          <Label htmlFor="density">{t("settings.appearance.density")}</Label>
           <Select
             value={density}
             onValueChange={(value) => pickDensity(value as DensityId)}
@@ -108,7 +126,7 @@ export function AppearanceCard() {
             <SelectContent>
               {DENSITY_OPTIONS.map((option) => (
                 <SelectItem key={option.id} value={option.id}>
-                  {option.label} — {option.hint}
+                  {t(DENSITY_LABEL_KEYS[option.id])} — {t(DENSITY_HINT_KEYS[option.id])}
                 </SelectItem>
               ))}
             </SelectContent>

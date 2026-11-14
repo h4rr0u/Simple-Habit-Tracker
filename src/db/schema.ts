@@ -77,15 +77,36 @@ export const settings = sqliteTable("settings", {
   value: text("value", { mode: "json" }).notNull(),
 });
 
+/** Interface languages supported by the Telegram bot. */
+export const languageEnum = ["ru", "en"] as const;
+
+export type InterfaceLanguage = (typeof languageEnum)[number];
+
 /**
- * One-delivery guard for reminders: a row is written when a reminder is
- * sent for a habit on a day; the unique (habitId, date) index makes
- * re-sends idempotent even when the cron process restarts.
+ * Single-row table (id = 1) holding installation-wide preferences.
+ * Separate from the key-value `settings` table so `language` gets a typed
+ * column with a default instead of being another stringly-typed entry.
+ */
+export const userPreferences = sqliteTable("user_preferences", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  language: text("language", { enum: languageEnum }).notNull().default("ru"),
+});
+
+/**
+ * One-delivery guard for reminders: a row is written when a specific
+ * reminder is sent on a day; the unique (reminderId, date) index makes
+ * re-sends idempotent even when the cron process restarts, while still
+ * allowing several reminders of the same habit per day (quantitative
+ * habits remind at every configured time until their target is reached).
  */
 export const reminderLog = sqliteTable(
   "reminder_log",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
+    /** Reminder that was sent; null on rows written before per-reminder logs. */
+    reminderId: integer("reminder_id").references(() => reminders.id, {
+      onDelete: "cascade",
+    }),
     habitId: integer("habit_id")
       .notNull()
       .references(() => habits.id, { onDelete: "cascade" }),
@@ -94,8 +115,15 @@ export const reminderLog = sqliteTable(
     sentAt: integer("sent_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),
+    /**
+     * Set when the recipient used this reminder's "+1" button. A reminder
+     * message can add progress at most once, so repeat taps are ignored.
+     */
+    tappedAt: integer("tapped_at", { mode: "timestamp" }),
   },
-  (table) => [uniqueIndex("reminder_log_habit_date_uq").on(table.habitId, table.date)]
+  (table) => [
+    uniqueIndex("reminder_log_reminder_date_uq").on(table.reminderId, table.date),
+  ]
 );
 
 export type Habit = typeof habits.$inferSelect;
@@ -105,5 +133,6 @@ export type NewCheckin = typeof checkins.$inferInsert;
 export type Reminder = typeof reminders.$inferSelect;
 export type NewReminder = typeof reminders.$inferInsert;
 export type Setting = typeof settings.$inferSelect;
+export type UserPreferences = typeof userPreferences.$inferSelect;
 export type ReminderLog = typeof reminderLog.$inferSelect;
 export type NewReminderLog = typeof reminderLog.$inferInsert;

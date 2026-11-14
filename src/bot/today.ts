@@ -4,6 +4,7 @@ import { format, startOfDay } from "date-fns";
 import { db } from "@/db";
 import { checkins } from "@/db/schema";
 import { listHabits } from "@/db/queries";
+import { buildCompletionCheckins } from "@/lib/habit-target";
 import { calculateCurrentStreak } from "@/lib/streaks";
 import { isHabitDueOn, type Schedule } from "@/types/schedule";
 import type { TodayHabitView } from "./messages";
@@ -23,7 +24,7 @@ export function todayKey(now: Date = new Date()): string {
 export async function getTodayViews(now: Date = new Date()): Promise<TodayHabitView[]> {
   const today = todayKey(now);
   const habits = (await listHabits({ includeArchived: false })).filter((habit) =>
-    isHabitDueOn(habit.schedule as unknown as Schedule, now)
+    isHabitDueOn(habit.schedule as unknown as Schedule, now, habit.createdAt)
   );
   if (habits.length === 0) return [];
 
@@ -34,13 +35,16 @@ export async function getTodayViews(now: Date = new Date()): Promise<TodayHabitV
     .orderBy(asc(checkins.date));
 
   return habits.map((habit) => {
+    const schedule = habit.schedule as unknown as Schedule;
     const history = histories.filter((checkin) => checkin.habitId === habit.id);
     const todayCheckin = history.find((checkin) => checkin.date === today) ?? null;
+    const completion = buildCompletionCheckins(habit, history, now);
     const { streak } = calculateCurrentStreak(
-      history,
-      habit.schedule as unknown as Schedule,
+      completion,
+      schedule,
       habit.freezeBank,
-      now
+      now,
+      habit.createdAt
     );
     return { habit, todayCheckin, streak };
   });

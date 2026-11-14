@@ -5,9 +5,13 @@ import { DashboardClient } from "@/components/dashboard-client";
 import { db } from "@/db";
 import { checkins } from "@/db/schema";
 import { listHabits } from "@/db/queries";
-import { meetsHabitTarget } from "@/lib/habit-target";
+import {
+  buildCompletionCheckins,
+  isHabitDayComplete,
+  isHabitDueOnDate,
+} from "@/lib/habit-target";
 import { calculateCurrentStreak } from "@/lib/streaks";
-import { isHabitDueOn, type Schedule } from "@/types/schedule";
+import type { Schedule } from "@/types/schedule";
 
 /**
  * Dashboard: today's scheduled habits with quick check-off, day progress
@@ -35,17 +39,24 @@ export default async function DashboardPage() {
       const schedule = habit.schedule as unknown as Schedule;
       const history = allCheckins.filter((c) => c.habitId === habit.id);
       const todayCheckin = history.find((c) => c.date === today) ?? null;
-      const streakResult = calculateCurrentStreak(history, schedule, habit.freezeBank);
+      const completion = buildCompletionCheckins(habit, history, now);
+      const streakResult = calculateCurrentStreak(
+        completion,
+        schedule,
+        habit.freezeBank,
+        now,
+        habit.createdAt
+      );
 
-      // A habit counts as done today when a check-in exists and meets its target.
-      const done = todayCheckin ? meetsHabitTarget(habit, todayCheckin.value) : false;
+      // Negative habits are inverted: a day is complete when no slip exists.
+      const done = isHabitDayComplete(habit, todayCheckin);
 
       return {
         habit,
         streak: streakResult.streak,
         todayCheckin,
         done,
-        isDueToday: isHabitDueOn(schedule, now),
+        isDueToday: isHabitDueOnDate(habit, now),
       };
     })
     .filter((item) => item.isDueToday);
@@ -54,7 +65,14 @@ export default async function DashboardPage() {
     .map((habit) => {
       const schedule = habit.schedule as unknown as Schedule;
       const history = allCheckins.filter((c) => c.habitId === habit.id);
-      const streak = calculateCurrentStreak(history, schedule, habit.freezeBank);
+      const completion = buildCompletionCheckins(habit, history, now);
+      const streak = calculateCurrentStreak(
+        completion,
+        schedule,
+        habit.freezeBank,
+        now,
+        habit.createdAt
+      );
       return { habit, streak: streak.streak };
     })
     .sort((a, b) => b.streak - a.streak)
@@ -68,6 +86,7 @@ export default async function DashboardPage() {
       todayItems={todayItems}
       topStreaks={topStreaks}
       totalFreezes={totalFreezes}
+      totalHabits={allHabits.length}
     />
   );
 }

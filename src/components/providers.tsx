@@ -2,6 +2,7 @@
 
 import { ThemeProvider } from "next-themes";
 
+import { HabitSyncProvider } from "@/components/habit-sync";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -14,6 +15,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
     >
       <TooltipProvider>{children}</TooltipProvider>
+      <HabitSyncProvider />
       <Toaster position="bottom-right" richColors />
     </ThemeProvider>
   );

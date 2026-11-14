@@ -8,8 +8,10 @@ import {
   reminderLog,
   reminders,
   settings,
+  userPreferences,
   type Checkin,
   type Habit,
+  type InterfaceLanguage,
   type NewCheckin,
   type NewHabit,
   type NewReminder,
@@ -176,8 +178,14 @@ export async function listReminders(): Promise<Reminder[]> {
 
 /** Deletes a reminder; returns true when a row was actually removed. */
 export async function deleteReminder(id: number): Promise<boolean> {
-  const result = await db.delete(reminders).where(eq(reminders.id, id)).run();
-  return result.changes > 0;
+  return db.transaction((tx) => {
+    // The reminder_log table references reminders without ON DELETE CASCADE
+    // in the migrated schema, so its rows must be cleared first (otherwise
+    // SQLite rejects the delete with "FOREIGN KEY constraint failed").
+    tx.delete(reminderLog).where(eq(reminderLog.reminderId, id)).run();
+    const result = tx.delete(reminders).where(eq(reminders.id, id)).run();
+    return result.changes > 0;
+  });
 }
 
 /** Enables or disables a reminder. */
@@ -188,26 +196,69 @@ export async function updateReminderEnabled(id: number, enabled: boolean): Promi
 /* ---------------------------- reminder log ---------------------------- */
 
 /**
- * Claims the one-send slot for a habit on a day: inserts the log row and
+ * Claims the one-send slot for a reminder on a day: inserts the log row and
  * reports whether this call was the one that claimed it. Later calls with
- * the same (habitId, date) are no-ops that return false.
+ * the same (reminderId, date) are no-ops that return false.
  */
-export async function markReminderSent(habitId: number, date: string): Promise<boolean> {
+export async function markReminderSent(
+  reminderId: number,
+  habitId: number,
+  date: string
+): Promise<boolean> {
   const result = await db
     .insert(reminderLog)
-    .values({ habitId, date })
+    .values({ reminderId, habitId, date })
     .onConflictDoNothing()
     .run();
   return result.changes > 0;
 }
 
 /** Releases a claimed slot (used when the delivery itself failed). */
-export async function unmarkReminderSent(habitId: number, date: string): Promise<boolean> {
+export async function unmarkReminderSent(
+  reminderId: number,
+  date: string
+): Promise<boolean> {
   const result = await db
     .delete(reminderLog)
-    .where(and(eq(reminderLog.habitId, habitId), eq(reminderLog.date, date)))
+    .where(
+      and(eq(reminderLog.reminderId, reminderId), eq(reminderLog.date, date))
+    )
     .run();
   return result.changes > 0;
+}
+
+/** Outcome of trying to use a reminder's "+1" button. */
+export type ReminderTapResult = "claimed" | "already-tapped" | "not-found";
+
+/**
+ * Marks a sent reminder as used, so each reminder message can add progress
+ * at most once. The conditional update is atomic: two rapid taps race and
+ * only the first gets "claimed".
+ */
+export async function claimReminderTap(
+  reminderId: number,
+  habitId: number,
+  date: string
+): Promise<ReminderTapResult> {
+  const [row] = await db
+    .select({ id: reminderLog.id, tappedAt: reminderLog.tappedAt })
+    .from(reminderLog)
+    .where(
+      and(
+        eq(reminderLog.reminderId, reminderId),
+        eq(reminderLog.habitId, habitId),
+        eq(reminderLog.date, date)
+      )
+    );
+  if (!row) return "not-found";
+  if (row.tappedAt != null) return "already-tapped";
+
+  const result = await db
+    .update(reminderLog)
+    .set({ tappedAt: new Date() })
+    .where(and(eq(reminderLog.id, row.id), isNull(reminderLog.tappedAt)))
+    .run();
+  return result.changes > 0 ? "claimed" : "already-tapped";
 }
 
 /* ------------------------------- settings ----------------------------- */
@@ -236,6 +287,34 @@ export async function getTelegramChatId(): Promise<number | undefined> {
 /** Binds the bot to a chat id. */
 export async function setTelegramChatId(chatId: number): Promise<void> {
   await upsertSetting(TELEGRAM_CHAT_ID_KEY, chatId);
+}
+
+/* --------------------------- user preferences ------------------------- */
+
+/** Language used by the Telegram bot. */
+export type BotLanguage = InterfaceLanguage;
+
+/** Fixed primary key of the single `user_preferences` row. */
+const USER_PREFERENCES_ID = 1;
+
+/** Returns the bot language, defaulting to Russian when unset. */
+export async function getBotLanguage(): Promise<BotLanguage> {
+  const [row] = await db
+    .select({ language: userPreferences.language })
+    .from(userPreferences)
+    .where(eq(userPreferences.id, USER_PREFERENCES_ID));
+  return row?.language ?? "ru";
+}
+
+/** Persists the bot language in the single `user_preferences` row. */
+export async function setBotLanguage(language: BotLanguage): Promise<void> {
+  await db
+    .insert(userPreferences)
+    .values({ id: USER_PREFERENCES_ID, language })
+    .onConflictDoUpdate({
+      target: userPreferences.id,
+      set: { language },
+    });
 }
 
 /* ------------------------------- helpers ------------------------------ */

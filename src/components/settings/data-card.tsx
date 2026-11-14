@@ -6,7 +6,9 @@ import { Database, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { exportDataAction, importDataAction } from "@/actions/data";
+import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
+import { translateActionError } from "@/lib/action-error";
 import {
   Card,
   CardContent,
@@ -21,6 +23,7 @@ import {
  */
 
 export function DataCard() {
+  const { t } = useLanguage();
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -31,7 +34,7 @@ export function DataCard() {
     try {
       const result = await exportDataAction();
       if (!result.ok) {
-        toast.error(result.error);
+        toast.error(translateActionError(t, result.error));
         return;
       }
       const blob = new Blob([JSON.stringify(result.data, null, 2)], {
@@ -43,9 +46,9 @@ export function DataCard() {
       link.download = `habit-tracker-backup-${format(new Date(), "yyyy-MM-dd")}.json`;
       link.click();
       URL.revokeObjectURL(url);
-      toast.success("Backup downloaded");
+      toast.success(t("settings.data.backupDownloaded"));
     } catch {
-      toast.error("Failed to export data");
+      toast.error(t("settings.data.exportFailed"));
     } finally {
       setExporting(false);
     }
@@ -53,12 +56,10 @@ export function DataCard() {
 
   const importData = async () => {
     if (!file) {
-      toast.error("Pick a backup file first");
+      toast.error(t("settings.data.pickFile"));
       return;
     }
-    const confirmed = window.confirm(
-      "Importing replaces ALL current data (habits, check-ins, reminders, settings) with the backup contents. Continue?"
-    );
+    const confirmed = window.confirm(t("settings.data.importConfirm"));
     if (!confirmed) return;
 
     setImporting(true);
@@ -67,15 +68,18 @@ export function DataCard() {
       const result = await importDataAction({ json });
       if (result.ok) {
         toast.success(
-          `Imported ${result.data.habits} habits, ${result.data.checkins} check-ins`
+          t("settings.data.imported", {
+            habits: result.data.habits,
+            checkins: result.data.checkins,
+          })
         );
         setFile(null);
         if (fileRef.current) fileRef.current.value = "";
       } else {
-        toast.error(result.error);
+        toast.error(translateActionError(t, result.error));
       }
     } catch {
-      toast.error("Failed to import data");
+      toast.error(t("settings.data.importFailed"));
     } finally {
       setImporting(false);
     }
@@ -86,17 +90,15 @@ export function DataCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Database className="size-5 text-primary" />
-          Data
+          {t("settings.data.title")}
         </CardTitle>
-        <CardDescription>
-          Export all data to a JSON backup, or restore from one.
-        </CardDescription>
+        <CardDescription>{t("settings.data.description")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <Button onClick={exportData} disabled={exporting}>
             <Download data-icon="inline-start" />
-            {exporting ? "Exporting…" : "Export data"}
+            {exporting ? t("settings.data.exporting") : t("settings.data.export")}
           </Button>
         </div>
 
@@ -108,14 +110,14 @@ export function DataCard() {
               onClick={() => fileRef.current?.click()}
             >
               <Upload data-icon="inline-start" />
-              {file ? file.name : "Choose backup file…"}
+              {file ? file.name : t("settings.data.chooseFile")}
             </Button>
             <Button
               variant="destructive"
               onClick={importData}
               disabled={importing || !file}
             >
-              {importing ? "Importing…" : "Import"}
+              {importing ? t("settings.data.importing") : t("settings.data.import")}
             </Button>
             <input
               ref={fileRef}
@@ -126,8 +128,7 @@ export function DataCard() {
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Import replaces all current data with the backup contents — export
-            a fresh backup first if you need one.
+            {t("settings.data.importHint")}
           </p>
         </div>
       </CardContent>

@@ -1,7 +1,10 @@
 import { eachDayOfInterval, format, startOfDay, startOfWeek } from "date-fns";
 
 import type { Checkin, Habit } from "@/db/schema";
-import { meetsHabitTarget } from "@/lib/habit-target";
+import {
+  buildCompletionCheckins,
+  meetsHabitTarget,
+} from "@/lib/habit-target";
 import type {
   AnalyticsRecords,
   DailyCompletionPoint,
@@ -67,8 +70,19 @@ function weekKeyOf(date: Date): string {
 /**
  * Groups raw check-ins per habit and drops the ones below target, producing
  * the input for every analytics aggregation.
+ *
+ * Negative habits store slips, so their completion entries are inverted into
+ * the scheduled days without a slip since the habit was created.
  */
 export function buildHabitHistory(habit: Habit, rows: Checkin[]): HabitHistory {
+  if (habit.type === "negative") {
+    return {
+      habit,
+      schedule: habit.schedule as unknown as Schedule,
+      effective: buildCompletionCheckins(habit, rows),
+    };
+  }
+
   const effective = rows
     .filter((row) => meetsTarget(habit, row.value))
     .map((row) => ({ date: row.date, value: row.value }));
@@ -78,6 +92,8 @@ export function buildHabitHistory(habit: Habit, rows: Checkin[]): HabitHistory {
 /** Prepared per-habit lookup structures for day-by-day scanning. */
 interface PreparedHabit {
   schedule: Schedule;
+  /** Creation day, used as the anchor for `flexible` intervals. */
+  anchorDate: Date;
   dates: Set<string>;
   /** Weekly mode only: week-start key → ascending check-in dates of that week. */
   weekDates: Map<string, string[]>;
@@ -95,7 +111,12 @@ function prepare(history: HabitHistory): PreparedHabit {
       else weekDates.set(weekKey, [checkin.date]);
     }
   }
-  return { schedule: history.schedule, dates, weekDates };
+  return {
+    schedule: history.schedule,
+    anchorDate: history.habit.createdAt,
+    dates,
+    weekDates,
+  };
 }
 
 const ZERO_CONTRIBUTION = { scheduled: 0, completed: 0 } as const;
@@ -113,7 +134,7 @@ function contribute(prepared: PreparedHabit, day: Date, key: string) {
     return { scheduled: quota / 7, completed: counts ? 1 : 0 };
   }
 
-  if (!isHabitDueOn(schedule, day)) return ZERO_CONTRIBUTION;
+  if (!isHabitDueOn(schedule, day, prepared.anchorDate)) return ZERO_CONTRIBUTION;
   return { scheduled: 1, completed: prepared.dates.has(key) ? 1 : 0 };
 }
 
@@ -213,7 +234,11 @@ export function computeRecords(
       habitId: history.habit.id,
       name: history.habit.name,
       color: history.habit.color,
-      longestStreak: calculateLongestStreak(history.effective, history.schedule),
+      longestStreak: calculateLongestStreak(
+        history.effective,
+        history.schedule,
+        history.habit.createdAt
+      ),
       completionRate: scheduled === 0 ? 0 : completed / scheduled,
       scheduled,
     };

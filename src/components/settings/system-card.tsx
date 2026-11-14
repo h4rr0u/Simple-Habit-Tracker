@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useLanguage } from "@/components/language-provider";
 import { Switch } from "@/components/ui/switch";
 
 /**
@@ -34,6 +35,7 @@ interface AutostartResult {
 }
 
 export function SystemCard() {
+  const { t } = useLanguage();
   const [enabled, setEnabled] = useState(false);
   const [supported, setSupported] = useState(false);
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -74,44 +76,42 @@ export function SystemCard() {
         setEnabled(next);
         toast.success(
           next
-            ? "Habit Tracker will start when the computer boots"
-            : "Auto-start turned off",
+            ? t("settings.system.toastEnabled")
+            : t("settings.system.toastDisabled"),
         );
       } else {
-        toast.error(data.error ?? "Failed to update auto-start");
+        toast.error(t("settings.system.toastFailed"));
       }
     } catch {
-      toast.error("Failed to update auto-start");
+      toast.error(t("settings.system.toastFailed"));
     } finally {
       setPending(false);
     }
   };
 
   const hint = loadState === "loading"
-    ? "Checking the current state…"
+    ? t("settings.system.hintLoading")
     : loadState === "error"
-      ? "Could not read the current auto-start state."
+      ? t("settings.system.hintError")
       : !supported
-        ? "Available on Windows only."
+        ? t("settings.system.hintUnsupported")
         : enabled
-          ? "The tracker starts hidden in the background and opens at http://localhost:3000."
-          : "Adds an entry to your user registry (no admin rights needed).";
+          ? t("settings.system.hintEnabled")
+          : t("settings.system.hintDisabled");
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Monitor className="size-5 text-primary" />
-          System
+          {t("settings.system.title")}
         </CardTitle>
-        <CardDescription>
-          How the tracker behaves on this computer.
-        </CardDescription>
+        <CardDescription>{t("settings.system.description")}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-0.5">
-            <p className="text-sm font-medium">Launch at computer startup</p>
+            <p className="text-sm font-medium">{t("settings.system.launch")}</p>
             <p className="text-xs text-muted-foreground">{hint}</p>
           </div>
           <Switch

@@ -5,13 +5,16 @@ import { z } from "zod";
 
 import {
   archiveHabit,
+  claimReminderTap,
   createHabit,
+  getCheckinsForRange,
   getHabitById,
   toggleCheckin,
   updateHabit,
   upsertCheckin,
 } from "@/db/queries";
 import { habitTypeEnum, type NewHabit } from "@/db/schema";
+import { incrementCheckinValue } from "@/lib/habit-target";
 import type { Schedule } from "@/types/schedule";
 
 /**
@@ -87,6 +90,15 @@ const toggleCheckinSchema = z.object({
   value: z.number().int().optional().nullable(),
 });
 
+const incrementCheckinSchema = z.object({
+  habitId: z.number().int().positive(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+});
+
+const incrementReminderCheckinSchema = incrementCheckinSchema.extend({
+  reminderId: z.number().int().positive(),
+});
+
 const setCheckinValueSchema = z.object({
   habitId: z.number().int().positive(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
@@ -96,12 +108,23 @@ const setCheckinValueSchema = z.object({
 
 /* ------------------------------- helpers ------------------------------ */
 
-/** Revalidates every habit view after any habit or check-in mutation. */
+/**
+ * Revalidates every habit view after any habit or check-in mutation.
+ *
+ * Actions are also called from the standalone Telegram bot process, where
+ * there is no Next.js request/static-generation store; revalidation is a
+ * web-only concern, so it is skipped there instead of failing the mutation.
+ */
 function revalidateDashboard(): void {
-  revalidatePath("/");
-  revalidatePath("/habits");
-  revalidatePath("/habits/[id]", "page");
-  revalidatePath("/analytics");
+  try {
+    revalidatePath("/");
+    revalidatePath("/habits");
+    revalidatePath("/habits/[id]", "page");
+    revalidatePath("/analytics");
+    revalidatePath("/settings");
+  } catch {
+    /* not running inside a Next.js request (e.g. the bot process) */
+  }
 }
 
 /* ------------------------------- actions ------------------------------ */
@@ -209,6 +232,74 @@ export async function toggleCheckinAction(
     const result = await toggleCheckin(habitId, date, value ?? undefined);
     revalidateDashboard();
     return { ok: true, data: result };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+/**
+ * Adds one to a quantitative habit's check-in for a day, capped at the
+ * habit's target. Creates the row with value 1 when none exists. Returns the
+ * new value so the bot can render "X/Y" progress.
+ */
+export async function incrementCheckinAction(
+  input: z.input<typeof incrementCheckinSchema>
+): Promise<ActionResult<number>> {
+  const parsed = incrementCheckinSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: firstIssueMessage(parsed.error) };
+  }
+
+  try {
+    const { habitId, date } = parsed.data;
+    const habit = await getHabitById(habitId);
+    if (!habit) {
+      return { ok: false, error: `Habit ${habitId} not found` };
+    }
+
+    const [existing] = await getCheckinsForRange(habitId, date, date);
+    const value = incrementCheckinValue(existing?.value ?? null, habit.targetValue);
+    await upsertCheckin(habitId, date, value);
+    revalidateDashboard();
+    return { ok: true, data: value };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+/**
+ * Adds one to a quantitative check-in from a reminder message. Each sent
+ * reminder may be used at most once: its reminder_log row is claimed
+ * atomically, so repeated taps on the same message do not inflate progress.
+ */
+export async function incrementReminderCheckinAction(
+  input: z.input<typeof incrementReminderCheckinSchema>
+): Promise<ActionResult<number>> {
+  const parsed = incrementReminderCheckinSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: firstIssueMessage(parsed.error) };
+  }
+
+  try {
+    const { habitId, reminderId, date } = parsed.data;
+    const habit = await getHabitById(habitId);
+    if (!habit) {
+      return { ok: false, error: `Habit ${habitId} not found` };
+    }
+    if (habit.type !== "quantitative") {
+      return { ok: false, error: "Only quantitative habits can be incremented" };
+    }
+
+    const tap = await claimReminderTap(reminderId, habitId, date);
+    if (tap === "already-tapped") {
+      return { ok: false, error: "Это напоминание уже использовано" };
+    }
+
+    const [existing] = await getCheckinsForRange(habitId, date, date);
+    const value = incrementCheckinValue(existing?.value ?? null, habit.targetValue);
+    await upsertCheckin(habitId, date, value);
+    revalidateDashboard();
+    return { ok: true, data: value };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }

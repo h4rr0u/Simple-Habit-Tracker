@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { LanguageProvider } from "@/components/language-provider";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -23,6 +24,8 @@ var a=localStorage.getItem("habit-tracker:accent");
 if(a&&a!=="blue")document.documentElement.setAttribute("data-accent",a);
 var d=localStorage.getItem("habit-tracker:density");
 if(d==="compact")document.documentElement.setAttribute("data-density","compact");
+var l=localStorage.getItem("habit-tracker:language");
+if(l==="ru"||l==="en")document.documentElement.lang=l;
 }catch(e){}`;
 
 export default function RootLayout({
@@ -35,15 +38,17 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <script dangerouslySetInnerHTML={{ __html: appearanceInitScript }} />
         <Providers>
-          <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset>
-              <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-                <SidebarTrigger className="-ml-1" />
-              </header>
-              <main className="flex flex-1 flex-col gap-4 p-4">{children}</main>
-            </SidebarInset>
-          </SidebarProvider>
+          <LanguageProvider>
+            <SidebarProvider>
+              <AppSidebar />
+              <SidebarInset>
+                <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+                  <SidebarTrigger className="-ml-1" />
+                </header>
+                <main className="flex flex-1 flex-col gap-4 p-4">{children}</main>
+              </SidebarInset>
+            </SidebarProvider>
+          </LanguageProvider>
         </Providers>
       </body>
     </html>

@@ -1,0 +1,1 @@
+ALTER TABLE `reminder_log` ADD `tapped_at` integer;

@@ -2,6 +2,7 @@
 
 import { UseFormReturn } from "react-hook-form";
 
+import { useLanguage, type TranslationKey } from "@/components/language-provider";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { dowLabel } from "@/lib/habit-ui";
 import { cn } from "@/lib/utils";
 import type { Schedule } from "@/types/schedule";
 
@@ -29,20 +29,41 @@ export interface ScheduleFormValue {
 
 const DOW_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
-export const SCHEDULE_MODE_LABELS: Record<Schedule["mode"], string> = {
-  daily: "Every day",
-  weekly: "Times per week",
-  specific_days: "Specific days",
-  flexible: "Every N days",
+/** Short weekday labels, indexed 0 = Sunday. */
+const WEEKDAY_KEYS: TranslationKey[] = [
+  "weekday.sun",
+  "weekday.mon",
+  "weekday.tue",
+  "weekday.wed",
+  "weekday.thu",
+  "weekday.fri",
+  "weekday.sat",
+];
+
+const SCHEDULE_MODE_KEYS: Record<Schedule["mode"], TranslationKey> = {
+  daily: "habits.form.schedule.daily",
+  weekly: "habits.form.schedule.weekly",
+  specific_days: "habits.form.schedule.specificDays",
+  flexible: "habits.form.schedule.flexible",
 };
+
+const SCHEDULE_MODES = Object.keys(SCHEDULE_MODE_KEYS) as Array<Schedule["mode"]>;
 
 interface ScheduleBuilderProps {
   form: UseFormReturn<Record<string, unknown>>;
 }
 
 export function ScheduleBuilder({ form }: ScheduleBuilderProps) {
+  const { t } = useLanguage();
   const schedule = form.watch("schedule") as ScheduleFormValue;
   const errors = form.formState.errors;
+  const scheduleErrors = errors.schedule as unknown as
+    | {
+        daysOfWeek?: { message?: string };
+        timesPerWeek?: { message?: string };
+        intervalDays?: { message?: string };
+      }
+    | undefined;
 
   const setMode = (mode: Schedule["mode"]) => {
     const current = form.getValues("schedule") as ScheduleFormValue;
@@ -60,15 +81,15 @@ export function ScheduleBuilder({ form }: ScheduleBuilderProps) {
 
   return (
     <Field>
-      <FieldLabel>Schedule</FieldLabel>
+      <FieldLabel>{t("habits.form.schedule")}</FieldLabel>
       <Select value={schedule.mode} onValueChange={(v) => setMode(v as Schedule["mode"])}>
         <SelectTrigger className="w-full">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {(Object.keys(SCHEDULE_MODE_LABELS) as Array<Schedule["mode"]>).map((mode) => (
+          {SCHEDULE_MODES.map((mode) => (
             <SelectItem key={mode} value={mode}>
-              {SCHEDULE_MODE_LABELS[mode]}
+              {t(SCHEDULE_MODE_KEYS[mode])}
             </SelectItem>
           ))}
         </SelectContent>
@@ -90,63 +111,78 @@ export function ScheduleBuilder({ form }: ScheduleBuilderProps) {
                     : "border-border bg-background hover:bg-muted"
                 )}
               >
-                {dowLabel(day)}
+                {t(WEEKDAY_KEYS[day] ?? "weekday.sun")}
               </button>
             );
           })}
-          {(errors.schedule as unknown as { daysOfWeek?: { message?: string } })?.daysOfWeek && (
-            <FieldError>
-              {((errors.schedule as unknown as { daysOfWeek?: { message?: string } })
-                .daysOfWeek?.message) ?? ""}
-            </FieldError>
+          {scheduleErrors?.daysOfWeek && (
+            <FieldError>{scheduleErrors.daysOfWeek.message ?? ""}</FieldError>
           )}
         </div>
       )}
 
       {schedule.mode === "weekly" && (
-        <div className="flex items-center gap-3 pt-1">
-          <Input
-            type="number"
-            min={1}
-            max={7}
-            value={schedule.timesPerWeek}
-            onChange={(e) => {
-              const current = form.getValues("schedule") as ScheduleFormValue;
-              form.setValue(
-                "schedule",
-                { ...current, timesPerWeek: Number(e.target.value) },
-                { shouldDirty: true }
-              );
-            }}
-            className="w-20"
-          />
-          <span className="text-sm text-muted-foreground">times per week</span>
+        <div className="space-y-1 pt-1">
+          <div className="flex items-center gap-3">
+            <Input
+              type="number"
+              min={1}
+              max={7}
+              step={1}
+              inputMode="numeric"
+              value={schedule.timesPerWeek}
+              onChange={(e) => {
+                const current = form.getValues("schedule") as ScheduleFormValue;
+                form.setValue(
+                  "schedule",
+                  { ...current, timesPerWeek: Number(e.target.value) },
+                  { shouldDirty: true }
+                );
+              }}
+              className="w-20"
+            />
+            <span className="text-sm text-muted-foreground">
+              {t("habits.form.schedule.timesPerWeek")}
+            </span>
+          </div>
+          {scheduleErrors?.timesPerWeek && (
+            <FieldError>{scheduleErrors.timesPerWeek.message ?? ""}</FieldError>
+          )}
         </div>
       )}
 
       {schedule.mode === "flexible" && (
-        <div className="flex items-center gap-3 pt-1">
-          <Input
-            type="number"
-            min={1}
-            value={schedule.intervalDays}
-            onChange={(e) => {
-              const current = form.getValues("schedule") as ScheduleFormValue;
-              form.setValue(
-                "schedule",
-                { ...current, intervalDays: Number(e.target.value) },
-                { shouldDirty: true }
-              );
-            }}
-            className="w-20"
-          />
-          <span className="text-sm text-muted-foreground">day interval</span>
+        <div className="space-y-1 pt-1">
+          <div className="flex items-center gap-3">
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={schedule.intervalDays}
+              onChange={(e) => {
+                const current = form.getValues("schedule") as ScheduleFormValue;
+                form.setValue(
+                  "schedule",
+                  { ...current, intervalDays: Number(e.target.value) },
+                  { shouldDirty: true }
+                );
+              }}
+              className="w-20"
+            />
+            <span className="text-sm text-muted-foreground">
+              {t("habits.form.schedule.dayInterval")}
+            </span>
+          </div>
+          {scheduleErrors?.intervalDays && (
+            <FieldError>{scheduleErrors.intervalDays.message ?? ""}</FieldError>
+          )}
         </div>
       )}
 
       {schedule.mode === "daily" && (
         <FieldDescription className="pt-1">
-          This habit is due every day.
+          {t("habits.form.schedule.dailyHint")}
         </FieldDescription>
       )}
     </Field>

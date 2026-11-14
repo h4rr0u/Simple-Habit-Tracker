@@ -4,6 +4,7 @@ import {
   getRemindersForHabit,
   listHabits,
 } from "@/db/queries";
+import { isHabitDayComplete } from "@/lib/habit-target";
 import { isHabitDueOn, type Schedule } from "@/types/schedule";
 
 /**
@@ -15,7 +16,9 @@ import { isHabitDueOn, type Schedule } from "@/types/schedule";
  * - it is enabled,
  * - the habit is active (not archived),
  * - the habit is due today per its schedule,
- * - the habit has no check-in recorded for today.
+ * - the day is not already complete: binary habits are skipped once checked
+ *   in, quantitative/timed habits only once their target is reached, and
+ *   negative habits once a slip is logged.
  *
  * Delivery itself (Telegram, notifications) is out of scope here.
  */
@@ -59,10 +62,18 @@ export async function getDueReminders(now: Date = new Date()): Promise<DueRemind
 
   for (const habit of habits) {
     const schedule: Schedule = getHabitSchedule(habit);
-    if (!isHabitDueOn(schedule, now)) continue;
+    if (!isHabitDueOn(schedule, now, habit.createdAt)) continue;
 
-    const todaysCheckins = await getCheckinsForRange(habit.id, day, day);
-    if (todaysCheckins.length > 0) continue;
+    const todaysCheckin =
+      (await getCheckinsForRange(habit.id, day, day))[0] ?? null;
+
+    // A negative habit's check-in is a slip, so it must not be treated as a
+    // completed day (isHabitDayComplete would invert the meaning).
+    const dayComplete =
+      habit.type === "negative"
+        ? todaysCheckin != null
+        : isHabitDayComplete(habit, todaysCheckin);
+    if (dayComplete) continue;
 
     const reminders = await getRemindersForHabit(habit.id, { enabledOnly: true });
     for (const reminder of reminders) {

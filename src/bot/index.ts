@@ -1,34 +1,57 @@
 import { Bot, type Context } from "grammy";
 
+import { incrementCheckinAction, incrementReminderCheckinAction } from "@/actions/habits";
+import type { Habit } from "@/db/schema";
 import {
   getCheckinsForRange,
   getHabitById,
   getTelegramChatId,
+  setBotLanguage,
   setTelegramChatId,
   toggleCheckin,
   upsertCheckin,
 } from "@/db/queries";
 import {
+  buildLanguageMessage,
+  buildMainMenuMessage,
+  buildReminderMessage,
+  buildStatsMessage,
+  buildSupportMessage,
   buildTodayMessage,
+  buildWebAppMessage,
   formatSavedValue,
   formatTimedValue,
+  isHabitDone,
   parseCallbackData,
   parseValueInput,
+  WEB_APP_URL,
+  type BotMessage,
+  type TodayStats,
 } from "./messages";
+import { botDictionaries, type BotDictionary } from "./dictionaries";
+import { getBotText, getChatLanguage } from "./language";
+import { actionErrorKind } from "@/lib/action-error";
 import { getTodayViews, todayKey } from "./today";
 
 /**
  * Telegram bot entry point (long polling).
  *
  * Commands:
- * - /start  — binds this chat (stores the chat id in settings).
- * - /today  — habits scheduled today with quick action buttons.
- * - /cancel — aborts a pending value input.
+ * - /start    — binds this chat and opens the inline main menu.
+ * - /today    — habits scheduled today with quick action buttons.
+ * - /cancel   — aborts a pending value input.
+ * - /support  — donation link (or a polite "disabled" note when unset).
+ * - /language — interface language picker (ru/en), stored in the database.
+ *
+ * Menu navigation (callbacks `menu_today` / `menu_stats` / `menu_main`)
+ * edits the message the button belongs to instead of sending a new one.
  *
  * Inline actions:
  * - ✅/↩️ toggle check-ins for binary/negative habits;
- * - ✏️/⏱ prompt for a numeric value (quantitative units, timed minutes);
- *   the next text message from the chat is treated as the value.
+ * - ➕ +1 increments a quantitative check-in (capped at its daily target);
+ *   reminder messages can be used once (repeat taps are rejected);
+ * - ✏️/⏱ prompt for a numeric value (timed minutes); the next text message
+ *   from the chat is treated as the value.
  *
  * Run with: npm run bot:dev
  */
@@ -60,12 +83,32 @@ const pendingInputs = new Map<number, PendingInput>();
 const HTML = { parse_mode: "HTML" } as const;
 
 /**
+ * Optional donation link from `.env`. When unset or blank, every support
+ * affordance (the /support link and the /start hint) is hidden.
+ */
+function donationUrl(): string | null {
+  return process.env.DONATION_URL?.trim() || null;
+}
+
+/**
+ * Address of the web UI from `.env`. Defaults to the local dev server, which
+ * Telegram refuses to use as a button url, so the menu shows it as text then.
+ */
+function webAppUrl(): string {
+  return process.env.WEB_APP_URL?.trim() || WEB_APP_URL;
+}
+
+/**
  * Replies with the /today digest and returns the sent message id (used to
  * edit the same message later from callbacks).
  */
 async function sendTodayMessage(ctx: Context): Promise<number | undefined> {
   const views = await getTodayViews();
-  const { text, keyboard } = buildTodayMessage(views, { today: todayKey() });
+  const language = await getChatLanguage(ctx.chat?.id);
+  const { text, keyboard } = buildTodayMessage(views, {
+    today: todayKey(),
+    language,
+  });
   const sent = await ctx.reply(text, { ...HTML, reply_markup: keyboard });
   return sent.message_id;
 }
@@ -77,7 +120,11 @@ async function editTodayMessage(
   messageId: number
 ): Promise<void> {
   const views = await getTodayViews();
-  const { text, keyboard } = buildTodayMessage(views, { today: todayKey() });
+  const language = await getChatLanguage(chatId);
+  const { text, keyboard } = buildTodayMessage(views, {
+    today: todayKey(),
+    language,
+  });
   try {
     await api.editMessageText(chatId, messageId, text, { ...HTML, reply_markup: keyboard });
   } catch (error) {
@@ -92,13 +139,109 @@ function isMessageNotModified(error: unknown): boolean {
   return error instanceof Error && error.message.includes("message is not modified");
 }
 
+/** Localizes a raw Server Action error for a callback toast. */
+function botActionError(message: string, dictionary: BotDictionary): string {
+  switch (actionErrorKind(message)) {
+    case "habitNotFound":
+      return dictionary.habitNotFound;
+    case "quantitativeOnly":
+      return dictionary.errorQuantitativeOnly;
+    case "reminderUsed":
+      return dictionary.errorReminderUsed;
+    default:
+      return dictionary.errorGeneric;
+  }
+}
+
+/**
+ * Renders a menu view in place: edits the message the pressed button belongs
+ * to, so the chat never collects duplicate menus. Falls back to a fresh
+ * message when Telegram refuses the edit (too old, deleted, media-only, ...).
+ */
+async function showMenuView(ctx: Context, message: BotMessage): Promise<void> {
+  const markup = message.keyboard ? { reply_markup: message.keyboard } : {};
+  const origin = ctx.callbackQuery?.message;
+
+  if (origin) {
+    try {
+      if (message.keyboard && origin.text === message.text) {
+        // Text already matches (e.g. a repeated /start tap): only refresh buttons.
+        await ctx.editMessageReplyMarkup(markup);
+      } else {
+        await ctx.editMessageText(message.text, { ...HTML, ...markup });
+      }
+      return;
+    } catch (error) {
+      // "message is not modified" means the view on screen is already correct.
+      if (isMessageNotModified(error)) return;
+      console.error("[bot] failed to edit menu message, sending a new one:", error);
+    }
+  }
+
+  await ctx.reply(message.text, { ...HTML, ...markup });
+}
+
+/** Aggregates today's views into the numbers shown by "Моя статистика". */
+async function getTodayStats(): Promise<TodayStats> {
+  const views = await getTodayViews();
+  return {
+    streak: views.reduce((best, view) => Math.max(best, view.streak), 0),
+    done: views.filter((view) => isHabitDone(view.habit, view.todayCheckin)).length,
+    total: views.length,
+  };
+}
+
+/**
+ * Re-renders a reminder message in place after a "+1" tap: the same habit,
+ * its reminder time and freshly loaded progress/streak. The callback data
+ * carries the reminder id and time so this works across processes (bot vs.
+ * reminder cron); `tapped` renders the button as used.
+ */
+async function editReminderMessage(
+  api: Context["api"],
+  chatId: number,
+  messageId: number,
+  habit: Habit,
+  time: string,
+  options: { reminderId?: number; tapped?: boolean } = {}
+): Promise<void> {
+  const date = todayKey();
+  const [todayCheckin] = await getCheckinsForRange(habit.id, date, date);
+  const views = await getTodayViews();
+  const streak = views.find((view) => view.habit.id === habit.id)?.streak ?? 0;
+  const language = await getChatLanguage(chatId);
+  const { text, keyboard } = buildReminderMessage(
+    {
+      reminderId: options.reminderId ?? 0,
+      habitId: habit.id,
+      habitName: habit.name,
+      time,
+      daysOfWeek: [],
+    },
+    streak,
+    habit,
+    todayCheckin ?? null,
+    { tapped: options.tapped, language }
+  );
+  try {
+    await api.editMessageText(chatId, messageId, text, {
+      ...HTML,
+      reply_markup: keyboard,
+    });
+  } catch (error) {
+    if (!isMessageNotModified(error)) {
+      console.error("[bot] failed to edit reminder message:", error);
+    }
+  }
+}
+
 /** Returns true when the update comes from a chat other than the bound one. */
 async function isForeignChat(ctx: Context): Promise<boolean> {
   const chatId = ctx.chat?.id;
   const bound = await getTelegramChatId();
   if (chatId == null || (bound != null && bound !== chatId)) {
     if (bound != null && chatId != null && bound !== chatId) {
-      await ctx.reply("This bot is linked to another chat. Send /start here to rebind it.");
+      await ctx.reply(await getBotText(chatId, "foreignChat"));
     }
     return true;
   }
@@ -111,12 +254,27 @@ bot.command("start", async (ctx) => {
   const chatId = ctx.chat?.id;
   if (chatId == null) return;
   await setTelegramChatId(chatId);
+  const language = await getChatLanguage(chatId);
+  const message = buildMainMenuMessage({
+    donationUrl: donationUrl(),
+    webUrl: webAppUrl(),
+    language,
+  });
+  await ctx.reply(message.text, message.keyboard ? { ...HTML, reply_markup: message.keyboard } : HTML);
+});
+
+bot.command("support", async (ctx) => {
+  const language = await getChatLanguage(ctx.chat?.id);
+  const { text, keyboard } = buildSupportMessage(donationUrl(), language);
+  await ctx.reply(text, keyboard ? { ...HTML, reply_markup: keyboard } : HTML);
+});
+
+bot.command("language", async (ctx) => {
+  const language = await getChatLanguage(ctx.chat?.id);
+  const message = buildLanguageMessage(language);
   await ctx.reply(
-    "✅ <b>Habit Tracker is linked to this chat!</b>\n\n" +
-      "Reminders will be delivered here. Commands:\n" +
-      "/today — today's habits with quick check-in buttons\n" +
-      "/cancel — abort a value input",
-    HTML
+    message.text,
+    message.keyboard ? { ...HTML, reply_markup: message.keyboard } : HTML
   );
 });
 
@@ -130,7 +288,7 @@ bot.command("cancel", async (ctx) => {
   const chatId = ctx.chat?.id;
   if (chatId == null) return;
   if (pendingInputs.delete(chatId)) {
-    await ctx.reply("Cancelled.");
+    await ctx.reply(await getBotText(chatId, "cancelled"));
   }
 });
 
@@ -140,17 +298,133 @@ bot.on("callback_query:data", async (ctx) => {
   const callback = parseCallbackData(ctx.callbackQuery.data);
   const chatId = ctx.chat?.id;
   if (!callback || chatId == null) {
-    await ctx.answerCallbackQuery({ text: "Unknown action" });
+    await ctx.answerCallbackQuery({
+      text: await getBotText(chatId, "unknownAction"),
+    });
     return;
   }
   if (await isForeignChat(ctx)) {
-    await ctx.answerCallbackQuery({ text: "This bot is linked to another chat" });
+    await ctx.answerCallbackQuery({
+      text: await getBotText(chatId, "foreignChatShort"),
+    });
+    return;
+  }
+
+  const language = await getChatLanguage(chatId);
+  const dictionary = botDictionaries[language];
+
+  if (callback.kind === "language") {
+    await setBotLanguage(callback.language);
+    await ctx.answerCallbackQuery({
+      text: await getBotText(chatId, "languageChanged"),
+    });
+    await showMenuView(
+      ctx,
+      buildMainMenuMessage({
+        donationUrl: donationUrl(),
+        webUrl: webAppUrl(),
+        language: callback.language,
+      })
+    );
+    return;
+  }
+
+  if (callback.kind === "noop") {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+
+  // Main-menu navigation: replace the menu message instead of sending new ones.
+  if (callback.kind === "menu_main") {
+    await ctx.answerCallbackQuery();
+    await showMenuView(
+      ctx,
+      buildMainMenuMessage({
+        donationUrl: donationUrl(),
+        webUrl: webAppUrl(),
+        language,
+      })
+    );
+    return;
+  }
+
+  if (callback.kind === "menu_web") {
+    await ctx.answerCallbackQuery();
+    await showMenuView(ctx, buildWebAppMessage(webAppUrl(), language));
+    return;
+  }
+
+  if (callback.kind === "menu_today") {
+    await ctx.answerCallbackQuery();
+    pendingInputs.delete(chatId); // stale pending state
+    const views = await getTodayViews();
+    await showMenuView(
+      ctx,
+      buildTodayMessage(views, { today: todayKey(), language })
+    );
+    return;
+  }
+
+  if (callback.kind === "menu_stats") {
+    await ctx.answerCallbackQuery();
+    await showMenuView(ctx, buildStatsMessage(await getTodayStats(), language));
     return;
   }
 
   const habit = await getHabitById(callback.habitId);
   if (!habit || habit.archivedAt) {
-    await ctx.answerCallbackQuery({ text: "Habit not found" });
+    await ctx.answerCallbackQuery({
+      text: await getBotText(chatId, "habitNotFound"),
+    });
+    return;
+  }
+
+  if (callback.kind === "increment") {
+    const messageId = ctx.callbackQuery.message?.message_id;
+    const result =
+      callback.source === "reminder" && callback.reminderId != null
+        ? await incrementReminderCheckinAction({
+            habitId: habit.id,
+            reminderId: callback.reminderId,
+            date: todayKey(),
+          })
+        : await incrementCheckinAction({
+            habitId: habit.id,
+            date: todayKey(),
+          });
+    if (!result.ok) {
+      await ctx.answerCallbackQuery({
+        text: botActionError(result.error, dictionary),
+      });
+      return;
+    }
+
+    const value = result.data;
+    const target = habit.targetValue;
+    const done = target != null && value >= target;
+
+    if (messageId != null) {
+      if (callback.source === "reminder" && callback.time) {
+        await editReminderMessage(
+          ctx.api,
+          chatId,
+          messageId,
+          habit,
+          callback.time,
+          { reminderId: callback.reminderId, tapped: true }
+        );
+      } else {
+        await editTodayMessage(ctx.api, chatId, messageId);
+      }
+    }
+
+    const progress = target != null ? `${value}/${target}` : String(value);
+    const unit = habit.unit ? ` ${habit.unit}` : "";
+    await ctx.answerCallbackQuery({
+      text: done
+        ? dictionary.incrementGoal(`${progress}${unit}`)
+        : dictionary.incrementPlus(`${progress}${unit}`),
+    });
     return;
   }
 
@@ -161,7 +435,14 @@ bot.on("callback_query:data", async (ctx) => {
       await editTodayMessage(ctx.api, chatId, messageId);
     }
     await ctx.answerCallbackQuery({
-      text: result === "checked" ? `✅ ${habit.name}` : `↩️ ${habit.name} removed`,
+      text:
+        habit.type === "negative"
+          ? result === "checked"
+            ? dictionary.slipLogged(habit.name)
+            : dictionary.backOnTrack(habit.name)
+          : result === "checked"
+            ? dictionary.checked(habit.name)
+            : dictionary.unchecked(habit.name),
     });
     return;
   }
@@ -175,18 +456,20 @@ bot.on("callback_query:data", async (ctx) => {
   const target =
     habit.type === "timed"
       ? habit.targetValue
-        ? ` (target ${formatTimedValue(habit.targetValue * 60)})`
+        ? dictionary.targetSuffix(formatTimedValue(habit.targetValue * 60))
         : ""
       : habit.targetValue
-        ? ` (target ${habit.targetValue}${habit.unit ? ` ${habit.unit}` : ""})`
+        ? dictionary.targetSuffix(
+            `${habit.targetValue}${habit.unit ? ` ${habit.unit}` : ""}`
+          )
         : "";
   const progress = todayCheckin
-    ? ` Current: ${formatSavedValue(habit, todayCheckin.value ?? 0)}.`
+    ? dictionary.currentSuffix(formatSavedValue(habit, todayCheckin.value ?? 0))
     : "";
   const ask =
     habit.type === "timed"
-      ? `⏱ <b>${habit.name}</b>${target}\nHow many minutes? Send a number${progress}`
-      : `✏️ <b>${habit.name}</b>${target}\nSend a number${progress}`;
+      ? dictionary.askTimed(habit.name, target, progress)
+      : dictionary.askQuantitative(habit.name, target, progress);
   await ctx.reply(ask, HTML);
 });
 
@@ -197,23 +480,26 @@ bot.on("message:text", async (ctx) => {
   const pending = pendingInputs.get(chatId);
   if (!pending) return;
 
+  const input = ctx.message.text.trim();
+  // Command updates are handled by their own handlers; don't treat them as a value.
+  if (input.startsWith("/")) return;
+
   const habit = await getHabitById(pending.habitId);
   if (!habit || habit.archivedAt) {
     pendingInputs.delete(chatId);
-    await ctx.reply("This habit no longer exists.");
+    await ctx.reply(await getBotText(chatId, "habitGone"));
     return;
   }
 
-  const input = ctx.message.text.trim();
   if (/^(\/cancel|cancel|отмена)$/i.test(input)) {
     pendingInputs.delete(chatId);
-    await ctx.reply("Cancelled.");
+    await ctx.reply(await getBotText(chatId, "cancelled"));
     return;
   }
 
   const value = parseValueInput(input);
   if (value == null) {
-    await ctx.reply('Please send a whole non-negative number, or send "cancel" to abort.');
+    await ctx.reply(await getBotText(chatId, "invalidValue"));
     return;
   }
 
@@ -225,11 +511,13 @@ bot.on("message:text", async (ctx) => {
   if (result === "set" && pending.messageId != null) {
     await editTodayMessage(ctx.api, chatId, pending.messageId);
   }
-  await ctx.reply(
-    result === "set"
-      ? `✅ Saved ${formatSavedValue(habit, stored)} for "${habit.name}"`
-      : `🧹 Check-in cleared for "${habit.name}"`
-  );
+  if (result === "set") {
+    const saved = await getBotText(chatId, "saved");
+    await ctx.reply(saved(formatSavedValue(habit, stored), habit.name));
+  } else {
+    const cleared = await getBotText(chatId, "cleared");
+    await ctx.reply(cleared(habit.name));
+  }
 });
 
 /* ------------------------------- startup ------------------------------ */

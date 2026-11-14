@@ -4,6 +4,8 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import type { ActionResult } from "@/actions/habits";
+import { useLanguage } from "@/components/language-provider";
+import { translateActionError } from "@/lib/action-error";
 
 /**
  * Client-side binding for habit Server Actions with pending state and
@@ -21,6 +23,7 @@ interface UseHabitMutations {
 }
 
 export function useHabitMutations(): UseHabitMutations {
+  const { t } = useLanguage();
   const [pendingCount, setPendingCount] = useState(0);
 
   const run = useCallback(
@@ -34,21 +37,21 @@ export function useHabitMutations(): UseHabitMutations {
         if (result.ok) {
           if (messages?.success) toast.success(messages.success);
         } else {
-          toast.error(messages?.error ?? "Something went wrong", {
-            description: result.error,
+          toast.error(messages?.error ?? t("errors.generic"), {
+            description: translateActionError(t, result.error),
           });
         }
         return result;
       } catch (error) {
-        toast.error(messages?.error ?? "Something went wrong", {
+        toast.error(messages?.error ?? t("errors.generic"), {
           description: error instanceof Error ? error.message : undefined,
         });
-        return { ok: false, error: "Network error" };
+        return { ok: false, error: t("errors.generic") };
       } finally {
         setPendingCount((c) => c - 1);
       }
     },
-    []
+    [t]
   );
 
   return {

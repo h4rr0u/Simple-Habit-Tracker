@@ -105,7 +105,9 @@ export function calculateCurrentStreak(
   checkins: StreakCheckin[],
   schedule: Schedule,
   freezeBank: number,
-  now: Date = new Date()
+  now: Date = new Date(),
+  /** Anchor for `flexible` schedules (habit creation day); epoch by default. */
+  anchorDate: Date = new Date(0)
 ): CurrentStreak {
   if (checkins.length === 0) {
     return { streak: 0, freezesUsed: 0, freezesRemaining: freezeBank };
@@ -152,7 +154,7 @@ export function calculateCurrentStreak(
   let freezesUsed = 0;
   let freezesRemaining = freezeBank;
   for (let day = today; day >= earliest; day = addDays(day, -1)) {
-    if (!isHabitDueOn(schedule, day)) continue;
+    if (!isHabitDueOn(schedule, day, anchorDate)) continue;
     if (doneDays.has(toKey(day))) {
       streak++;
       continue;
@@ -175,7 +177,9 @@ export function calculateCurrentStreak(
  */
 export function calculateLongestStreak(
   checkins: StreakCheckin[],
-  schedule: Schedule
+  schedule: Schedule,
+  /** Anchor for `flexible` schedules (habit creation day); epoch by default. */
+  anchorDate: Date = new Date(0)
 ): number {
   if (checkins.length === 0) return 0;
 
@@ -201,7 +205,7 @@ export function calculateLongestStreak(
   let best = 0;
   let run = 0;
   for (let day = fromKey(minDateKey(checkins)); day <= fromKey(maxDateKey(checkins)); day = addDays(day, 1)) {
-    if (!isHabitDueOn(schedule, day)) continue;
+    if (!isHabitDueOn(schedule, day, anchorDate)) continue;
     if (doneDays.has(toKey(day))) {
       run++;
       best = Math.max(best, run);
@@ -222,7 +226,9 @@ export function getCompletionRate(
   checkins: StreakCheckin[],
   schedule: Schedule,
   from: Date,
-  to: Date
+  to: Date,
+  /** Anchor for `flexible` schedules (habit creation day); epoch by default. */
+  anchorDate: Date = new Date(0)
 ): number {
   const inRange = filterInRange(checkins, from, to);
   const days = eachDayOfInterval({ start: startOfDay(from), end: startOfDay(to) });
@@ -243,7 +249,7 @@ export function getCompletionRate(
   let scheduled = 0;
   let completed = 0;
   for (const day of days) {
-    if (!isHabitDueOn(schedule, day)) continue;
+    if (!isHabitDueOn(schedule, day, anchorDate)) continue;
     scheduled++;
     if (doneDays.has(toKey(day))) completed++;
   }
@@ -259,7 +265,9 @@ export function getDayOfWeekPatterns(
   checkins: StreakCheckin[],
   schedule: Schedule,
   from: Date,
-  to: Date
+  to: Date,
+  /** Anchor for `flexible` schedules (habit creation day); epoch by default. */
+  anchorDate: Date = new Date(0)
 ): DayOfWeekPattern[] {
   const inRange = filterInRange(checkins, from, to);
   const doneDays = new Set(inRange.map((c) => c.date));
@@ -267,7 +275,7 @@ export function getDayOfWeekPatterns(
   const scheduled = new Array<number>(7).fill(0);
   const completed = new Array<number>(7).fill(0);
   for (const day of eachDayOfInterval({ start: startOfDay(from), end: startOfDay(to) })) {
-    if (!isHabitDueOn(schedule, day)) continue;
+    if (!isHabitDueOn(schedule, day, anchorDate)) continue;
     const dow = day.getDay();
     scheduled[dow]++;
     if (doneDays.has(toKey(day))) completed[dow]++;

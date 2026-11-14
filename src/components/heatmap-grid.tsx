@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { isSameDay, parseISO } from "date-fns";
 
+import { useLanguage } from "@/components/language-provider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { HeatmapWeek } from "@/lib/heatmap";
 
@@ -17,6 +18,7 @@ interface HeatmapGridProps {
 }
 
 export function HeatmapGrid({ weeks, color }: HeatmapGridProps) {
+  const { t } = useLanguage();
   const today = useMemo(() => new Date(), []);
 
   const opacityFor = (level: number): number => {
@@ -52,7 +54,7 @@ export function HeatmapGrid({ weeks, color }: HeatmapGridProps) {
         ))}
       </div>
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span>Less</span>
+        <span>{t("analytics.heatmap.less")}</span>
         {[0, 0.5, 1].map((level) => (
           <span
             key={level}
@@ -60,7 +62,7 @@ export function HeatmapGrid({ weeks, color }: HeatmapGridProps) {
             style={{ background: level === 0 ? "var(--muted)" : color, opacity: level === 0 ? 1 : 0.25 + 0.75 * level }}
           />
         ))}
-        <span>More</span>
+        <span>{t("analytics.heatmap.more")}</span>
       </div>
     </div>
   );

@@ -17,7 +17,6 @@ export type DensityId = "comfortable" | "compact";
 /** One selectable accent theme. */
 export interface AccentOption {
   id: AccentId;
-  label: string;
   /** Swatch color shown in the settings picker. */
   swatch: string;
 }
@@ -25,20 +24,18 @@ export interface AccentOption {
 /** One selectable density mode. */
 export interface DensityOption {
   id: DensityId;
-  label: string;
-  hint: string;
 }
 
 export const ACCENT_OPTIONS: AccentOption[] = [
-  { id: "blue", label: "Blue", swatch: "#3b82f6" },
-  { id: "violet", label: "Violet", swatch: "#8b5cf6" },
-  { id: "emerald", label: "Emerald", swatch: "#10b981" },
-  { id: "rose", label: "Rose", swatch: "#f43f5e" },
+  { id: "blue", swatch: "#3b82f6" },
+  { id: "violet", swatch: "#8b5cf6" },
+  { id: "emerald", swatch: "#10b981" },
+  { id: "rose", swatch: "#f43f5e" },
 ];
 
 export const DENSITY_OPTIONS: DensityOption[] = [
-  { id: "comfortable", label: "Comfortable", hint: "Default spacing" },
-  { id: "compact", label: "Compact", hint: "Tighter spacing, more on screen" },
+  { id: "comfortable" },
+  { id: "compact" },
 ];
 
 export const DEFAULT_ACCENT: AccentId = "blue";

@@ -2,7 +2,9 @@
 
 import { useMemo } from "react";
 
+import { useLanguage } from "@/components/language-provider";
 import type { YearHeatCell } from "@/types/analytics";
+import { HEAT_COLORS } from "./chart-theme";
 
 /**
  * 365-day heatmap: colour intensity = share of completed habits for the day.
@@ -25,6 +27,7 @@ function levelFor(rate: number): number {
 }
 
 export function YearHeatmap({ cells }: YearHeatmapProps) {
+  const { t } = useLanguage();
   const weeks = useMemo(() => {
     const columns: YearHeatCell[][] = [];
     for (let i = 0; i < cells.length; i += 7) {
@@ -36,7 +39,7 @@ export function YearHeatmap({ cells }: YearHeatmapProps) {
   if (cells.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-        No data for the last year yet.
+        {t("analytics.heatmap.empty")}
       </div>
     );
   }
@@ -55,8 +58,11 @@ export function YearHeatmap({ cells }: YearHeatmapProps) {
                   className="size-3 rounded-[3px]"
                   style={{
                     background:
-                      level < 0 ? "transparent" : level === 0 ? "var(--muted)" : "var(--chart-1)",
-                    opacity: level > 0 ? 0.2 + 0.2 * level : undefined,
+                      level < 0
+                        ? "transparent"
+                        : level === 0
+                          ? "var(--muted)"
+                          : HEAT_COLORS[level - 1],
                   }}
                 />
               );
@@ -65,18 +71,19 @@ export function YearHeatmap({ cells }: YearHeatmapProps) {
         ))}
       </div>
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span>Less</span>
-        {[0, 2, 4].map((level) => (
+        <span>{t("analytics.heatmap.less")}</span>
+        <span
+          className="size-3 rounded-[3px]"
+          style={{ background: "var(--muted)" }}
+        />
+        {HEAT_COLORS.map((color) => (
           <span
-            key={level}
+            key={color}
             className="size-3 rounded-[3px]"
-            style={{
-              background: level === 0 ? "var(--muted)" : "var(--chart-1)",
-              opacity: level === 0 ? 1 : 0.2 + 0.2 * level,
-            }}
+            style={{ background: color }}
           />
         ))}
-        <span>More</span>
+        <span>{t("analytics.heatmap.more")}</span>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { Loader2 } from "lucide-react";
 
+import { useLanguage } from "@/components/language-provider";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ export function AnalyticsFilters({ habits, period, habitId }: AnalyticsFiltersPr
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+  const { t } = useLanguage();
 
   function update(key: "period" | "habit", value: string) {
     const params = new URLSearchParams(searchParams);
@@ -46,7 +48,7 @@ export function AnalyticsFilters({ habits, period, habitId }: AnalyticsFiltersPr
       style={{ opacity: pending ? 0.6 : 1 }}
     >
       <Tabs value={period} onValueChange={(value) => update("period", value)}>
-        <TabsList>
+        <TabsList aria-label={t("analytics.period.30")}>
           <TabsTrigger value="7">7d</TabsTrigger>
           <TabsTrigger value="30">30d</TabsTrigger>
           <TabsTrigger value="90">90d</TabsTrigger>
@@ -54,11 +56,11 @@ export function AnalyticsFilters({ habits, period, habitId }: AnalyticsFiltersPr
       </Tabs>
 
       <Select value={habitId} onValueChange={(value) => update("habit", value)}>
-        <SelectTrigger className="w-52" aria-label="Habit">
+        <SelectTrigger className="w-52" aria-label={t("analytics.filters.habit")}>
           {pending ? <Loader2 className="size-4 animate-spin" /> : <SelectValue />}
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All habits</SelectItem>
+          <SelectItem value="all">{t("analytics.filters.allHabits")}</SelectItem>
           {habits.map((habit) => (
             <SelectItem key={habit.id} value={String(habit.id)}>
               {habit.name}

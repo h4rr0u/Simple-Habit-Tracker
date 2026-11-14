@@ -4,26 +4,40 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 
+import { useLanguage, type TranslationKey } from "@/components/language-provider";
 import type { WeekdayCompletionPoint } from "@/types/analytics";
-import { AXIS_TICK, CHART_COLORS, TOOLTIP_STYLE } from "./chart-theme";
+import { AXIS_TICK, CHART_COLORS, SERIES_COLORS, TOOLTIP_STYLE } from "./chart-theme";
 import { ChartEmpty } from "./completion-line-chart";
 
 /** Completion rate aggregated by weekday ("I slip on Wednesdays"). */
 
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+/** Short weekday labels, indexed 0 = Sunday. */
+const WEEKDAY_KEYS: TranslationKey[] = [
+  "weekday.sun",
+  "weekday.mon",
+  "weekday.tue",
+  "weekday.wed",
+  "weekday.thu",
+  "weekday.fri",
+  "weekday.sat",
+];
 
 /** Builds chart data ordered Monday-first. */
-function toWeekdayRows(weekdays: WeekdayCompletionPoint[]) {
+function toWeekdayRows(
+  weekdays: WeekdayCompletionPoint[],
+  label: (dayOfWeek: number) => string
+) {
   const byDow = new Map(weekdays.map((p) => [p.dayOfWeek, p]));
   return [1, 2, 3, 4, 5, 6, 0].map((dayOfWeek) => {
     const rate = byDow.get(dayOfWeek)?.rate ?? 0;
-    return { label: DAY_LABELS[dayOfWeek], percent: Math.round(rate * 100) };
+    return { label: label(dayOfWeek), percent: Math.round(rate * 100) };
   });
 }
 
@@ -33,11 +47,15 @@ interface WeekdayBarChartProps {
 }
 
 export function WeekdayBarChart({ weekdays, hasData }: WeekdayBarChartProps) {
+  const { t } = useLanguage();
+
   if (!hasData) {
-    return <ChartEmpty message="Nothing scheduled in this period yet." />;
+    return <ChartEmpty />;
   }
 
-  const rows = toWeekdayRows(weekdays);
+  const rows = toWeekdayRows(weekdays, (dayOfWeek) =>
+    t(WEEKDAY_KEYS[dayOfWeek] ?? "weekday.sun")
+  );
 
   return (
     <div className="h-60">
@@ -61,14 +79,13 @@ export function WeekdayBarChart({ weekdays, hasData }: WeekdayBarChartProps) {
           <Tooltip
             cursor={{ fill: "var(--muted)", opacity: 0.4 }}
             contentStyle={TOOLTIP_STYLE}
-            formatter={(value) => [`${value}%`, "Completed"]}
+            formatter={(value) => [`${value}%`, t("analytics.chart.completed")]}
           />
-          <Bar
-            dataKey="percent"
-            fill={CHART_COLORS.primary}
-            radius={[4, 4, 0, 0]}
-            maxBarSize={40}
-          />
+          <Bar dataKey="percent" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false}>
+            {rows.map((row, index) => (
+              <Cell key={row.label} fill={SERIES_COLORS[index]} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

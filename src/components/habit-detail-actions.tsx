@@ -7,6 +7,8 @@ import { toast } from "sonner";
 
 import { archiveHabitAction } from "@/actions/habits";
 import { HabitFormDialog } from "@/components/habit-form-dialog";
+import { notifyHabitMutation } from "@/components/habit-sync";
+import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { Habit } from "@/db/schema";
+import { translateActionError } from "@/lib/action-error";
 
 /**
  * Edit / Archive buttons for the habit detail page. Archive asks for
@@ -28,6 +31,7 @@ interface HabitDetailActionsProps {
 }
 
 export function HabitDetailActions({ habit }: HabitDetailActionsProps) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -38,15 +42,16 @@ export function HabitDetailActions({ habit }: HabitDetailActionsProps) {
     try {
       const result = await archiveHabitAction({ id: habit.id });
       if (result.ok) {
-        toast.success(`"${habit.name}" archived`);
+        toast.success(t("habits.archive.success", { name: habit.name }));
+        notifyHabitMutation();
         setArchiveOpen(false);
         router.push("/habits");
         router.refresh();
       } else {
-        toast.error(result.error);
+        toast.error(translateActionError(t, result.error));
       }
     } catch {
-      toast.error("Failed to archive habit");
+      toast.error(t("habits.archive.failed"));
     } finally {
       setArchiving(false);
     }
@@ -56,29 +61,28 @@ export function HabitDetailActions({ habit }: HabitDetailActionsProps) {
     <div className="flex items-center gap-2">
       <Button variant="outline" onClick={() => setEditOpen(true)}>
         <Pencil data-icon="inline-start" />
-        Edit
+        {t("common.edit")}
       </Button>
       <Button variant="destructive" onClick={() => setArchiveOpen(true)}>
         <Archive data-icon="inline-start" />
-        Archive
+        {t("common.archive")}
       </Button>
 
       <HabitFormDialog open={editOpen} onOpenChange={setEditOpen} habit={habit} />
       <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Archive habit?</DialogTitle>
+            <DialogTitle>{t("habits.archive.title")}</DialogTitle>
             <DialogDescription>
-              &quot;{habit.name}&quot; will be hidden from the dashboard and habit list.
-              Its history is kept.
+              {t("habits.archive.description", { name: habit.name })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setArchiveOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button variant="destructive" onClick={handleArchive} disabled={archiving}>
-              Archive
+              {t("common.archive")}
             </Button>
           </DialogFooter>
         </DialogContent>
