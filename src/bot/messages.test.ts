@@ -4,6 +4,7 @@ import type { Checkin, Habit } from "@/db/schema";
 import type { DueReminder } from "@/lib/reminders";
 import {
   buildCallbackData,
+  buildLanguageChangedMessage,
   buildLanguageMessage,
   buildMainMenuMessage,
   buildReminderMessage,
@@ -84,6 +85,17 @@ describe("callback data codecs", () => {
     const data = buildCallbackData({ kind: "toggle", habitId: 42 });
     expect(data).toBe("ck:42");
     expect(parseCallbackData(data)).toEqual({ kind: "toggle", habitId: 42 });
+  });
+
+  it("carries the reminder time in toggle callbacks", () => {
+    const data = buildCallbackData({ kind: "toggle", habitId: 5, time: "09:00" });
+    expect(data).toBe("ck:5:09:00");
+    expect(parseCallbackData(data)).toEqual({
+      kind: "toggle",
+      habitId: 5,
+      time: "09:00",
+    });
+    expect(parseCallbackData("ck:5:9:00")).toBeNull();
   });
 
   it("round-trips input callbacks", () => {
@@ -459,12 +471,29 @@ describe("buildReminderMessage", () => {
     expect(message.text).toContain("<b>Stretch</b>");
     expect(message.text).toContain("09:00");
     expect(message.text).toContain("🔥 Стрик: 4");
-    expect(buttonAt(message, 0)).toEqual({ text: "✅ Выполнено", callback_data: "ck:5" });
+    expect(buttonAt(message, 0)).toEqual({ text: "✅ Выполнено", callback_data: "ck:5:09:00" });
   });
 
   it("escapes HTML-significant habit names", () => {
     const { text } = buildReminderMessage({ ...due, habitName: "a<b>&c" }, 0, stretch);
     expect(text).toContain("a&lt;b&gt;&amp;c");
+  });
+
+  it("escapes HTML-significant units in progress", () => {
+    const pills = makeHabit({
+      id: 5,
+      name: "Pills",
+      type: "quantitative",
+      targetValue: 3,
+      unit: "a<b&c",
+    });
+    const message = buildReminderMessage(
+      due,
+      0,
+      pills,
+      makeCheckin({ habitId: 5, value: 1 })
+    );
+    expect(message.text).toContain("1/3 a&lt;b&amp;c");
   });
 
   it("renders an increment button with today's progress for quantitative habits", () => {
@@ -544,7 +573,7 @@ describe("buildReminderMessage", () => {
     const message = buildReminderMessage(due, 4, stretch, null, { language: "en" });
     expect(message.text).toContain("Scheduled for 09:00");
     expect(message.text).toContain("🔥 Streak: 4");
-    expect(buttonAt(message, 0)).toEqual({ text: "✅ Mark done", callback_data: "ck:5" });
+    expect(buttonAt(message, 0)).toEqual({ text: "✅ Mark done", callback_data: "ck:5:09:00" });
   });
 });
 
@@ -579,7 +608,7 @@ describe("buildSupportMessage", () => {
 describe("language selection", () => {
   it("renders the picker with both options and a way back", () => {
     const message = buildLanguageMessage("ru");
-    expect(message.text).toContain("Выберите язык интерфейса");
+    expect(message.text).toContain("Выберите язык / Choose language:");
     expect(buttonAt(message, 0)).toEqual({
       text: "🇷🇺 Русский",
       callback_data: "lang_ru",
@@ -590,6 +619,22 @@ describe("language selection", () => {
     });
     expect(buttonAt(message, 2)).toEqual({
       text: "⬅️ В главное меню",
+      callback_data: "menu_main",
+    });
+  });
+
+  it("confirms the change in the selected language", () => {
+    const ru = buildLanguageChangedMessage("ru");
+    expect(ru.text).toBe("Язык изменён на Русский 🇷🇺");
+    expect(buttonAt(ru, 0)).toEqual({
+      text: "⬅️ В главное меню",
+      callback_data: "menu_main",
+    });
+
+    const en = buildLanguageChangedMessage("en");
+    expect(en.text).toBe("Language changed to English 🇬🇧");
+    expect(buttonAt(en, 0)).toEqual({
+      text: "⬅️ Back to main menu",
       callback_data: "menu_main",
     });
   });

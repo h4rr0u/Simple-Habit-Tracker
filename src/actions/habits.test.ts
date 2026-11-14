@@ -117,7 +117,7 @@ describe("incrementReminderCheckinAction", () => {
       date: "2026-11-13",
     });
 
-    expect(result).toEqual({ ok: false, error: "Это напоминание уже использовано" });
+    expect(result).toEqual({ ok: false, error: "This reminder has already been used" });
     expect(incrementCheckin).not.toHaveBeenCalled();
   });
 
@@ -130,7 +130,7 @@ describe("incrementReminderCheckinAction", () => {
       date: "2026-11-13",
     });
 
-    expect(result).toEqual({ ok: false, error: "Напоминание устарело" });
+    expect(result).toEqual({ ok: false, error: "Reminder is stale" });
     expect(incrementCheckin).not.toHaveBeenCalled();
     expect(upsertCheckin).not.toHaveBeenCalled();
   });

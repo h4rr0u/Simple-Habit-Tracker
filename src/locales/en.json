@@ -16,7 +16,6 @@
   "common.support": "Support",
   "common.archive": "Archive",
   "common.clear": "Clear",
-  "common.unknownHabit": "Unknown habit",
   "common.deleteReminderFor": "Delete reminder for {name}",
   "common.close": "Close",
   "common.sidebar": "Sidebar",
@@ -278,6 +277,7 @@
   "errors.reminderNotFound": "Reminder not found",
   "errors.quantitativeOnly": "Only quantitative habits can be incremented",
   "errors.reminderUsed": "This reminder has already been used",
+  "errors.reminderStale": "This reminder is stale",
   "errors.invalidJson": "The backup file is not valid JSON",
   "errors.invalidBackup": "Invalid backup file",
   "errors.orphanHabit": "The backup references a habit that is not in the file",
@@ -287,5 +287,7 @@
   "errors.invalidChatId": "Chat id must be a number (send /start to the bot to get it)",
   "errors.chatUnreachable": "The bot cannot write to this chat",
   "errors.botTokenMissing": "TELEGRAM_BOT_TOKEN is not set in .env",
-  "errors.pickDay": "Pick at least one day"
+  "errors.pickDay": "Pick at least one day",
+  "errors.autostartReadFailed": "Could not read auto-start settings",
+  "errors.autostartUpdateFailed": "Could not update auto-start settings"
 }

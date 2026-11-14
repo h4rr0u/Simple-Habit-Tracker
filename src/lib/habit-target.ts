@@ -43,18 +43,6 @@ export function targetUnits(habit: TargetHabit): number | null {
 }
 
 /**
- * Next value for a quantitative check-in: current + 1, capped at the target
- * when one is configured. A missing/zero row starts at 1.
- */
-export function incrementCheckinValue(
-  current: number | null | undefined,
-  target: number | null | undefined
-): number {
-  const next = Math.max(0, Math.floor(current ?? 0)) + 1;
-  return target != null && target > 0 ? Math.min(next, target) : next;
-}
-
-/**
  * Whether a recorded check-in value satisfies the habit's target.
  * Presence-based habits (binary/negative, or untargeted quantitative/timed)
  * are satisfied by any check-in; targeted ones need to reach the target.

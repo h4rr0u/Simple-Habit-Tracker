@@ -15,23 +15,19 @@ import {
  */
 
 /**
- * Language configured for the linked chat. The tracker supports a single
- * linked chat (`user_preferences` has one row), so `chatId` is accepted for
- * future multi-chat support but does not affect the lookup yet.
+ * Language configured for the bot. The tracker supports a single linked chat
+ * (`user_preferences` has one row), so the language is installation-wide and
+ * does not depend on a chat id.
  */
-export async function getChatLanguage(
-  chatId: number | null | undefined
-): Promise<BotLanguage> {
-  void chatId;
+export async function getChatLanguage(): Promise<BotLanguage> {
   return getBotLanguage();
 }
 
-/** Looks up one translated string/function for the chat's language. */
+/** Looks up one translated string/function for the bot's language. */
 export async function getBotText<K extends BotTextKey>(
-  chatId: number | null | undefined,
   key: K
 ): Promise<BotDictionary[K]> {
-  const language = await getChatLanguage(chatId);
+  const language = await getChatLanguage();
   const dictionary =
     botDictionaries[language] ?? botDictionaries[DEFAULT_BOT_LANGUAGE];
   return dictionary[key];

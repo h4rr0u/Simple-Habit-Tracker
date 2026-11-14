@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import type { Checkin, Habit } from "@/db/schema";
 import {
   buildCompletionCheckins,
-  incrementCheckinValue,
   isHabitDayComplete,
   isHabitDueOnDate,
   meetsHabitTarget,
@@ -104,29 +103,6 @@ describe("isHabitDayComplete", () => {
     const timed = habit({ type: "timed", targetValue: 30 });
     expect(isHabitDayComplete(timed, checkin("2020-01-01", 600))).toBe(false);
     expect(isHabitDayComplete(timed, checkin("2020-01-01", 1800))).toBe(true);
-  });
-});
-
-describe("incrementCheckinValue", () => {
-  it("starts an empty day at 1", () => {
-    expect(incrementCheckinValue(null, 3)).toBe(1);
-    expect(incrementCheckinValue(undefined, 3)).toBe(1);
-  });
-
-  it("increments the current value by one", () => {
-    expect(incrementCheckinValue(0, 3)).toBe(1);
-    expect(incrementCheckinValue(1, 3)).toBe(2);
-    expect(incrementCheckinValue(2, 3)).toBe(3);
-  });
-
-  it("caps the value at the target", () => {
-    expect(incrementCheckinValue(3, 3)).toBe(3);
-    expect(incrementCheckinValue(9, 3)).toBe(3);
-  });
-
-  it("keeps counting when the habit has no target", () => {
-    expect(incrementCheckinValue(null, null)).toBe(1);
-    expect(incrementCheckinValue(4, null)).toBe(5);
   });
 });
 

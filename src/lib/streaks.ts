@@ -72,12 +72,6 @@ interface StreakWalk {
   blockedUnit: string | null;
 }
 
-/** Completion rate for a single weekday (0 = Sunday … 6 = Saturday). */
-export interface DayOfWeekPattern {
-  dayOfWeek: number;
-  completionRate: number;
-}
-
 /** Monday-based week start used for all weekly computations. */
 const WEEK_STARTS_ON = 1;
 
@@ -428,33 +422,3 @@ export function getCompletionRate(
   return scheduled === 0 ? 0 : completed / scheduled;
 }
 
-/**
- * Per-weekday completion rates for analytics like "I slip on Wednesdays".
- * Always returns seven entries (0 = Sunday … 6 = Saturday); weekdays with no
- * scheduled days in the range have a rate of 0.
- */
-export function getDayOfWeekPatterns(
-  checkins: StreakCheckin[],
-  schedule: Schedule,
-  from: Date,
-  to: Date,
-  /** Anchor for `flexible` schedules (habit creation day); epoch by default. */
-  anchorDate: Date = new Date(0)
-): DayOfWeekPattern[] {
-  const inRange = filterInRange(checkins, from, to);
-  const doneDays = new Set(inRange.map((c) => c.date));
-
-  const scheduled = new Array<number>(7).fill(0);
-  const completed = new Array<number>(7).fill(0);
-  for (const day of eachDayOfInterval({ start: startOfDay(from), end: startOfDay(to) })) {
-    if (!isHabitDueOn(schedule, day, anchorDate)) continue;
-    const dow = day.getDay();
-    scheduled[dow]++;
-    if (doneDays.has(toKey(day))) completed[dow]++;
-  }
-
-  return scheduled.map((count, dayOfWeek) => ({
-    dayOfWeek,
-    completionRate: count === 0 ? 0 : completed[dayOfWeek] / count,
-  }));
-}

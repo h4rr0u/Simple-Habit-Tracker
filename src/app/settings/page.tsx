@@ -23,14 +23,22 @@ export default async function SettingsPage() {
   const donationUrl = process.env.DONATION_URL?.trim() || null;
 
   const habitNames = new Map(habits.map((habit) => [habit.id, habit.name]));
-  const rows: ReminderRow[] = reminders.map((reminder) => ({
-    id: reminder.id,
-    habitId: reminder.habitId,
-    habitName: habitNames.get(reminder.habitId) ?? null,
-    time: reminder.time,
-    daysOfWeek: reminder.daysOfWeek,
-    enabled: reminder.enabled,
-  }));
+  // Reminders of archived/deleted habits are hidden: the archive action keeps
+  // the rows for history, but they must not look editable in the UI.
+  const rows: ReminderRow[] = reminders.flatMap((reminder) => {
+    const habitName = habitNames.get(reminder.habitId);
+    if (habitName == null) return [];
+    return [
+      {
+        id: reminder.id,
+        habitId: reminder.habitId,
+        habitName,
+        time: reminder.time,
+        daysOfWeek: reminder.daysOfWeek,
+        enabled: reminder.enabled,
+      },
+    ];
+  });
 
   return (
     <SettingsClient

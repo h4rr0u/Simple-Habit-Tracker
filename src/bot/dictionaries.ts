@@ -3,14 +3,12 @@
  *
  * This module is deliberately free of database/network imports: message
  * builders and unit tests can import it without opening SQLite. The
- * DB-aware `getBotText(chatId, key)` helper lives in `./language`.
+ * DB-aware `getBotText(key)` helper lives in `./language`.
  */
 
 export type BotLanguage = "ru" | "en";
 
 export const DEFAULT_BOT_LANGUAGE: BotLanguage = "ru";
-
-export const BOT_LANGUAGES: readonly BotLanguage[] = ["ru", "en"];
 
 /** Russian plural for "день" (1 день, 2 дня, 5 дней). */
 export function pluralDays(count: number): string {
@@ -103,6 +101,8 @@ export interface BotDictionary {
   invalidValue: string;
   saved: (value: string, name: string) => string;
   cleared: (name: string) => string;
+  /** Test message confirming that the bot can write to the linked chat. */
+  chatBindingTest: string;
   incrementGoal: (progress: string) => string;
   incrementPlus: (progress: string) => string;
   slipLogged: (name: string) => string;
@@ -116,6 +116,7 @@ export interface BotDictionary {
   errorGeneric: string;
   errorQuantitativeOnly: string;
   errorReminderUsed: string;
+  errorReminderStale: string;
 }
 
 const ru: BotDictionary = {
@@ -184,10 +185,10 @@ const ru: BotDictionary = {
   supportDisabled: "Спасибо! Донаты для этой сборки отключены.",
 
   languagePrompt:
-    "🌐 <b>Язык интерфейса</b>\n\n" + "Выберите язык интерфейса:",
+    "🌐 <b>Язык / Language</b>\n\n" + "Выберите язык / Choose language:",
   languageRuButton: "🇷🇺 Русский",
   languageEnButton: "🇬🇧 English",
-  languageChanged: "Язык изменён",
+  languageChanged: "Язык изменён на Русский 🇷🇺",
 
   foreignChat:
     "Этот бот привязан к другому чату. Чтобы перепривязать его, очистите настройки в веб-интерфейсе.",
@@ -201,6 +202,8 @@ const ru: BotDictionary = {
   invalidValue: 'Отправь целое неотрицательное число или напиши "cancel", чтобы отменить.',
   saved: (value, name) => `✅ Сохранено ${value} для «${name}»`,
   cleared: (name) => `🧹 Отметка удалена для «${name}»`,
+  chatBindingTest:
+    "Привязка успешна! Теперь я буду присылать сюда напоминания.",
   incrementGoal: (progress) => `🎉 Цель дня достигнута! ${progress}`,
   incrementPlus: (progress) => `+1 · ${progress}`,
   slipLogged: (name) => `❌ Срыв записан · ${name}`,
@@ -216,6 +219,7 @@ const ru: BotDictionary = {
   errorGeneric: "Что-то пошло не так. Попробуйте ещё раз.",
   errorQuantitativeOnly: "Увеличивать можно только привычки с количеством",
   errorReminderUsed: "Это напоминание уже использовано",
+  errorReminderStale: "Напоминание устарело",
 };
 
 const en: BotDictionary = {
@@ -283,10 +287,10 @@ const en: BotDictionary = {
   supportDisabled: "Thanks! Donations are disabled for this build.",
 
   languagePrompt:
-    "🌐 <b>Interface language</b>\n\n" + "Choose the interface language:",
+    "🌐 <b>Язык / Language</b>\n\n" + "Выберите язык / Choose language:",
   languageRuButton: "🇷🇺 Русский",
   languageEnButton: "🇬🇧 English",
-  languageChanged: "Language changed",
+  languageChanged: "Language changed to English 🇬🇧",
 
   foreignChat:
     "This bot is linked to another chat. To rebind it, clear the settings in the web interface.",
@@ -300,6 +304,7 @@ const en: BotDictionary = {
   invalidValue: 'Please send a whole non-negative number, or send "cancel" to abort.',
   saved: (value, name) => `✅ Saved ${value} for "${name}"`,
   cleared: (name) => `🧹 Check-in cleared for "${name}"`,
+  chatBindingTest: "Chat linked! I will send reminders here from now on.",
   incrementGoal: (progress) => `🎉 Daily goal reached! ${progress}`,
   incrementPlus: (progress) => `+1 · ${progress}`,
   slipLogged: (name) => `❌ Slip logged · ${name}`,
@@ -315,16 +320,9 @@ const en: BotDictionary = {
   errorGeneric: "Something went wrong. Please try again.",
   errorQuantitativeOnly: "Only quantitative habits can be incremented",
   errorReminderUsed: "This reminder has already been used",
+  errorReminderStale: "This reminder is stale",
 };
 
 export const botDictionaries: Record<BotLanguage, BotDictionary> = { ru, en };
 
 export type BotTextKey = keyof BotDictionary;
-
-/** Resolves a dictionary entry for a language (falls back to Russian). */
-export function botText<K extends BotTextKey>(
-  language: BotLanguage,
-  key: K
-): BotDictionary[K] {
-  return (botDictionaries[language] ?? botDictionaries[DEFAULT_BOT_LANGUAGE])[key];
-}

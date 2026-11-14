@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useLanguage } from "@/components/language-provider";
+import { translateActionError } from "@/lib/action-error";
 import { Switch } from "@/components/ui/switch";
 
 /**
@@ -80,7 +81,11 @@ export function SystemCard() {
             : t("settings.system.toastDisabled"),
         );
       } else {
-        toast.error(t("settings.system.toastFailed"));
+        toast.error(
+          data.error
+            ? translateActionError(t, data.error)
+            : t("settings.system.toastFailed"),
+        );
       }
     } catch {
       toast.error(t("settings.system.toastFailed"));

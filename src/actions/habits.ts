@@ -295,10 +295,10 @@ export async function incrementReminderCheckinAction(
 
     const tap = await claimReminderTap(reminderId, habitId, date);
     if (tap === "not-found") {
-      return { ok: false, error: "Напоминание устарело" };
+      return { ok: false, error: "Reminder is stale" };
     }
     if (tap === "already-tapped") {
-      return { ok: false, error: "Это напоминание уже использовано" };
+      return { ok: false, error: "This reminder has already been used" };
     }
 
     const value = await incrementCheckin(habitId, date, habit.targetValue);

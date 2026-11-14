@@ -48,10 +48,10 @@ function createAutoLaunch(): AutoLaunch {
 }
 
 /** Public message for failures; the raw error may contain absolute paths. */
-const AUTOSTART_READ_FAILED = "Не удалось получить настройки автозапуска";
+const AUTOSTART_READ_FAILED = "Could not read auto-start settings";
 
 /** Public message for failures; the raw error may contain absolute paths. */
-const AUTOSTART_UPDATE_FAILED = "Не удалось изменить настройки автозапуска";
+const AUTOSTART_UPDATE_FAILED = "Could not update auto-start settings";
 
 const autostartSchema = z.object({
   enabled: z.boolean(),

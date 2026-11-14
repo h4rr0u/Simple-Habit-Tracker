@@ -13,6 +13,7 @@ import {
   upsertCheckin,
 } from "@/db/queries";
 import {
+  buildLanguageChangedMessage,
   buildLanguageMessage,
   buildMainMenuMessage,
   buildReminderMessage,
@@ -22,6 +23,7 @@ import {
   buildWebAppMessage,
   formatSavedValue,
   formatTimedValue,
+  escapeHtml,
   isHabitDone,
   parseCallbackData,
   parseValueInput,
@@ -105,7 +107,7 @@ function webAppUrl(): string {
  */
 async function sendTodayMessage(ctx: Context): Promise<number | undefined> {
   const views = await getTodayViews();
-  const language = await getChatLanguage(ctx.chat?.id);
+  const language = await getChatLanguage();
   const { text, keyboard } = buildTodayMessage(views, {
     today: todayKey(),
     language,
@@ -121,7 +123,7 @@ async function editTodayMessage(
   messageId: number
 ): Promise<void> {
   const views = await getTodayViews();
-  const language = await getChatLanguage(chatId);
+  const language = await getChatLanguage();
   const { text, keyboard } = buildTodayMessage(views, {
     today: todayKey(),
     language,
@@ -149,6 +151,8 @@ function botActionError(message: string, dictionary: BotDictionary): string {
       return dictionary.errorQuantitativeOnly;
     case "reminderUsed":
       return dictionary.errorReminderUsed;
+    case "reminderStale":
+      return dictionary.errorReminderStale;
     default:
       return dictionary.errorGeneric;
   }
@@ -210,7 +214,7 @@ async function editReminderMessage(
   const [todayCheckin] = await getCheckinsForRange(habit.id, date, date);
   const views = await getTodayViews();
   const streak = views.find((view) => view.habit.id === habit.id)?.streak ?? 0;
-  const language = await getChatLanguage(chatId);
+  const language = await getChatLanguage();
   const { text, keyboard } = buildReminderMessage(
     {
       reminderId: options.reminderId ?? 0,
@@ -242,7 +246,7 @@ async function isForeignChat(ctx: Context): Promise<boolean> {
   const bound = await getTelegramChatId();
   if (chatId == null || (bound != null && bound !== chatId)) {
     if (bound != null && chatId != null && bound !== chatId) {
-      await ctx.reply(await getBotText(chatId, "foreignChat"));
+      await ctx.reply(await getBotText("foreignChat"));
     }
     return true;
   }
@@ -259,12 +263,12 @@ bot.command("start", async (ctx) => {
   // the binding: the owner must clear it from the web settings first.
   const boundChatId = await getTelegramChatId();
   if (boundChatId != null && boundChatId !== chatId) {
-    await ctx.reply(await getBotText(chatId, "bindingTaken"));
+    await ctx.reply(await getBotText("bindingTaken"));
     return;
   }
 
   await setTelegramChatId(chatId);
-  const language = await getChatLanguage(chatId);
+  const language = await getChatLanguage();
   const message = buildMainMenuMessage({
     donationUrl: donationUrl(),
     webUrl: webAppUrl(),
@@ -274,13 +278,13 @@ bot.command("start", async (ctx) => {
 });
 
 bot.command("support", async (ctx) => {
-  const language = await getChatLanguage(ctx.chat?.id);
+  const language = await getChatLanguage();
   const { text, keyboard } = buildSupportMessage(donationUrl(), language);
   await ctx.reply(text, keyboard ? { ...HTML, reply_markup: keyboard } : HTML);
 });
 
 bot.command("language", async (ctx) => {
-  const language = await getChatLanguage(ctx.chat?.id);
+  const language = await getChatLanguage();
   const message = buildLanguageMessage(language);
   await ctx.reply(
     message.text,
@@ -298,7 +302,7 @@ bot.command("cancel", async (ctx) => {
   const chatId = ctx.chat?.id;
   if (chatId == null) return;
   if (pendingInputs.delete(chatId)) {
-    await ctx.reply(await getBotText(chatId, "cancelled"));
+    await ctx.reply(await getBotText("cancelled"));
   }
 });
 
@@ -309,33 +313,25 @@ bot.on("callback_query:data", async (ctx) => {
   const chatId = ctx.chat?.id;
   if (!callback || chatId == null) {
     await ctx.answerCallbackQuery({
-      text: await getBotText(chatId, "unknownAction"),
+      text: await getBotText("unknownAction"),
     });
     return;
   }
   if (await isForeignChat(ctx)) {
     await ctx.answerCallbackQuery({
-      text: await getBotText(chatId, "foreignChatShort"),
+      text: await getBotText("foreignChatShort"),
     });
     return;
   }
 
-  const language = await getChatLanguage(chatId);
+  const language = await getChatLanguage();
   const dictionary = botDictionaries[language];
 
   if (callback.kind === "language") {
     await setBotLanguage(callback.language);
-    await ctx.answerCallbackQuery({
-      text: await getBotText(chatId, "languageChanged"),
-    });
-    await showMenuView(
-      ctx,
-      buildMainMenuMessage({
-        donationUrl: donationUrl(),
-        webUrl: webAppUrl(),
-        language: callback.language,
-      })
-    );
+    await ctx.answerCallbackQuery();
+    // Replace the picker with a confirmation in the newly selected language.
+    await showMenuView(ctx, buildLanguageChangedMessage(callback.language));
     return;
   }
 
@@ -384,7 +380,7 @@ bot.on("callback_query:data", async (ctx) => {
   const habit = await getHabitById(callback.habitId);
   if (!habit || habit.archivedAt) {
     await ctx.answerCallbackQuery({
-      text: await getBotText(chatId, "habitNotFound"),
+      text: await getBotText("habitNotFound"),
     });
     return;
   }
@@ -443,18 +439,29 @@ bot.on("callback_query:data", async (ctx) => {
     await syncHabitFreezes(habit.id);
     const messageId = ctx.callbackQuery.message?.message_id;
     if (messageId != null) {
-      await editTodayMessage(ctx.api, chatId, messageId);
+      if (callback.time) {
+        await editReminderMessage(ctx.api, chatId, messageId, habit, callback.time, {
+          tapped: false,
+        });
+      } else {
+        await editTodayMessage(ctx.api, chatId, messageId);
+      }
     }
-    await ctx.answerCallbackQuery({
-      text:
-        habit.type === "negative"
-          ? result === "checked"
-            ? dictionary.slipLogged(habit.name)
-            : dictionary.backOnTrack(habit.name)
-          : result === "checked"
-            ? dictionary.checked(habit.name)
-            : dictionary.unchecked(habit.name),
-    });
+    try {
+      await ctx.answerCallbackQuery({
+        text:
+          habit.type === "negative"
+            ? result === "checked"
+              ? dictionary.slipLogged(habit.name)
+              : dictionary.backOnTrack(habit.name)
+            : result === "checked"
+              ? dictionary.checked(habit.name)
+              : dictionary.unchecked(habit.name),
+      });
+    } catch (error) {
+      // The check-in is already saved; a failed toast must not break the flow.
+      console.error("[bot] failed to answer toggle callback:", error);
+    }
     return;
   }
 
@@ -464,23 +471,23 @@ bot.on("callback_query:data", async (ctx) => {
   await ctx.answerCallbackQuery();
 
   const [todayCheckin] = await getCheckinsForRange(habit.id, todayKey(), todayKey());
+  const safeName = escapeHtml(habit.name);
+  const safeUnit = habit.unit ? ` ${escapeHtml(habit.unit)}` : "";
   const target =
     habit.type === "timed"
       ? habit.targetValue
         ? dictionary.targetSuffix(formatTimedValue(habit.targetValue * 60))
         : ""
       : habit.targetValue
-        ? dictionary.targetSuffix(
-            `${habit.targetValue}${habit.unit ? ` ${habit.unit}` : ""}`
-          )
+        ? dictionary.targetSuffix(`${habit.targetValue}${safeUnit}`)
         : "";
   const progress = todayCheckin
-    ? dictionary.currentSuffix(formatSavedValue(habit, todayCheckin.value ?? 0))
+    ? dictionary.currentSuffix(escapeHtml(formatSavedValue(habit, todayCheckin.value ?? 0)))
     : "";
   const ask =
     habit.type === "timed"
-      ? dictionary.askTimed(habit.name, target, progress)
-      : dictionary.askQuantitative(habit.name, target, progress);
+      ? dictionary.askTimed(safeName, target, progress)
+      : dictionary.askQuantitative(safeName, target, progress);
   await ctx.reply(ask, HTML);
 });
 
@@ -498,19 +505,19 @@ bot.on("message:text", async (ctx) => {
   const habit = await getHabitById(pending.habitId);
   if (!habit || habit.archivedAt) {
     pendingInputs.delete(chatId);
-    await ctx.reply(await getBotText(chatId, "habitGone"));
+    await ctx.reply(await getBotText("habitGone"));
     return;
   }
 
   if (/^(\/cancel|cancel|отмена)$/i.test(input)) {
     pendingInputs.delete(chatId);
-    await ctx.reply(await getBotText(chatId, "cancelled"));
+    await ctx.reply(await getBotText("cancelled"));
     return;
   }
 
   const value = parseValueInput(input);
   if (value == null) {
-    await ctx.reply(await getBotText(chatId, "invalidValue"));
+    await ctx.reply(await getBotText("invalidValue"));
     return;
   }
 
@@ -524,10 +531,10 @@ bot.on("message:text", async (ctx) => {
     await editTodayMessage(ctx.api, chatId, pending.messageId);
   }
   if (result === "set") {
-    const saved = await getBotText(chatId, "saved");
+    const saved = await getBotText("saved");
     await ctx.reply(saved(formatSavedValue(habit, stored), habit.name));
   } else {
-    const cleared = await getBotText(chatId, "cleared");
+    const cleared = await getBotText("cleared");
     await ctx.reply(cleared(habit.name));
   }
 });
@@ -539,7 +546,20 @@ bot.catch((error) => {
 });
 
 void bot.start({
-  onStart: (me) => console.log(`[bot] long polling started as @${me.username}`),
+  onStart: async (me) => {
+    console.log(`[bot] long polling started as @${me.username}`);
+    try {
+      await bot.api.setMyCommands([
+        { command: "start", description: "Start / Начать" },
+        { command: "today", description: "Today's habits / Привычки на сегодня" },
+        { command: "language", description: "Language / Язык" },
+        { command: "support", description: "Support the author / Поддержать автора" },
+      ]);
+    } catch (error) {
+      // A failed menu sync must not stop polling.
+      console.error("[bot] failed to set commands:", error);
+    }
+  },
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

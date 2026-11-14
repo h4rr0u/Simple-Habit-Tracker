@@ -35,9 +35,7 @@ import {
 } from "lucide-react";
 
 import type { Schedule } from "@/types/schedule";
-import type { Habit } from "@/db/schema";
 import type { TranslationKey, TranslationVars } from "@/components/language-provider";
-import { targetUnits } from "@/lib/habit-target";
 
 /**
  * Shared UI constants and helpers for habit presentation: icon set, color
@@ -221,20 +219,3 @@ export function formatDuration(totalSeconds: number): string {
   return `${mm}:${ss}`;
 }
 
-/* ---------------------------- checkin toggle --------------------------- */
-
-/**
- * How a checkbox-style toggle should complete a check-in for this habit.
- * Presence-based habits (binary/negative, or quantitative/timed without a
- * target) use a plain toggle; habits with a target record the target value
- * when checked (the checkbox asserts completion) and clear the day when
- * un-checked, so the stored value actually satisfies the target.
- */
-export function checkinTogglePlan(
-  habit: Habit,
-  currentlyDone: boolean
-): { mode: "toggle" } | { mode: "value"; value: number | null } {
-  const target = targetUnits(habit);
-  if (target == null) return { mode: "toggle" };
-  return { mode: "value", value: currentlyDone ? null : target };
-}

@@ -336,15 +336,6 @@ export async function getCheckinsForHabitsOnDate(
     .where(and(inArray(checkins.habitId, habitIds), eq(checkins.date, date)));
 }
 
-/** Returns the full check-in history of a habit, oldest first. */
-export async function getCheckinsForHabit(habitId: number): Promise<Checkin[]> {
-  return db
-    .select()
-    .from(checkins)
-    .where(eq(checkins.habitId, habitId))
-    .orderBy(asc(checkins.date));
-}
-
 /**
  * Inserts a check-in, or removes the existing one when it already exists.
  *

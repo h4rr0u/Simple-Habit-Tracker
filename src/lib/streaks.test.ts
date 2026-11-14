@@ -6,7 +6,6 @@ import {
   calculateFreezeConsumption,
   calculateLongestStreak,
   getCompletionRate,
-  getDayOfWeekPatterns,
   type StreakCheckin,
 } from "./streaks";
 
@@ -317,31 +316,3 @@ describe("getCompletionRate", () => {
   });
 });
 
-describe("getDayOfWeekPatterns", () => {
-  it("aggregates completion per weekday", () => {
-    // Nov 5 .. Nov 13: two Wednesdays (Nov 5, 12) — 1 done; two Thursdays (Nov 6, 13) — 2 done.
-    const checkins = [c(2025, 11, 5), c(2025, 11, 6), c(2025, 11, 13)];
-    const patterns = getDayOfWeekPatterns(
-      checkins,
-      DAILY,
-      new Date(2025, 10, 5),
-      new Date(2025, 10, 13)
-    );
-    const wednesday = patterns.find((p) => p.dayOfWeek === 3);
-    const thursday = patterns.find((p) => p.dayOfWeek === 4);
-    const monday = patterns.find((p) => p.dayOfWeek === 1);
-    expect(wednesday?.completionRate).toBeCloseTo(0.5);
-    expect(thursday?.completionRate).toBeCloseTo(1);
-    expect(monday?.completionRate).toBe(0);
-  });
-
-  it("always returns seven entries", () => {
-    const patterns = getDayOfWeekPatterns(
-      [],
-      DAILY,
-      new Date(2025, 10, 5),
-      new Date(2025, 10, 7)
-    );
-    expect(patterns).toHaveLength(7);
-  });
-});

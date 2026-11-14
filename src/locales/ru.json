@@ -16,7 +16,6 @@
   "common.support": "Поддержать",
   "common.archive": "Архивировать",
   "common.clear": "Очистить",
-  "common.unknownHabit": "Неизвестная привычка",
   "common.deleteReminderFor": "Удалить напоминание для «{name}»",
   "common.close": "Закрыть",
   "common.sidebar": "Боковая панель",
@@ -278,6 +277,7 @@
   "errors.reminderNotFound": "Напоминание не найдено",
   "errors.quantitativeOnly": "Увеличивать можно только привычки с количеством",
   "errors.reminderUsed": "Это напоминание уже использовано",
+  "errors.reminderStale": "Напоминание устарело",
   "errors.invalidJson": "Файл резервной копии не является корректным JSON",
   "errors.invalidBackup": "Некорректный файл резервной копии",
   "errors.orphanHabit": "Резервная копия ссылается на привычку, которой нет в файле",
@@ -287,5 +287,7 @@
   "errors.invalidChatId": "ID чата должен быть числом (отправьте /start боту, чтобы получить его)",
   "errors.chatUnreachable": "Бот не может написать в этот чат",
   "errors.botTokenMissing": "Не задан TELEGRAM_BOT_TOKEN в файле .env",
-  "errors.pickDay": "Выберите хотя бы один день"
+  "errors.pickDay": "Выберите хотя бы один день",
+  "errors.autostartReadFailed": "Не удалось получить настройки автозапуска",
+  "errors.autostartUpdateFailed": "Не удалось изменить настройки автозапуска"
 }

@@ -22,7 +22,12 @@ export { pluralDays } from "./dictionaries";
 /* --------------------------- callback data ---------------------------- */
 
 export type BotCallback =
-  | { kind: "toggle"; habitId: number }
+  | {
+      kind: "toggle";
+      habitId: number;
+      /** Reminder HH:mm, used to keep a reminder message a reminder after a tap. */
+      time?: string;
+    }
   | { kind: "input"; habitId: number }
   /**
    * Adds one to a quantitative check-in. Reminder messages carry their
@@ -59,8 +64,10 @@ const MENU_MAIN = "menu_main";
 /** Serializes a callback into Telegram callback_data (≤ 64 bytes). */
 export function buildCallbackData(callback: BotCallback): string {
   switch (callback.kind) {
-    case "toggle":
-      return `${TOGGLE_PREFIX}${callback.habitId}`;
+    case "toggle": {
+      const time = callback.time ? `:${callback.time}` : "";
+      return `${TOGGLE_PREFIX}${callback.habitId}${time}`;
+    }
     case "input":
       return `${INPUT_PREFIX}${callback.habitId}`;
     case "increment": {
@@ -109,8 +116,17 @@ export function parseCallbackData(data: string): BotCallback | null {
   }
 
   if (data.startsWith(TOGGLE_PREFIX)) {
-    const habitId = Number(data.slice(TOGGLE_PREFIX.length));
-    return Number.isInteger(habitId) && habitId > 0 ? { kind: "toggle", habitId } : null;
+    const [idPart, ...rest] = data.slice(TOGGLE_PREFIX.length).split(":");
+    const habitId = Number(idPart);
+    if (!Number.isInteger(habitId) || habitId <= 0) return null;
+    if (rest.length === 0) return { kind: "toggle", habitId };
+    if (rest.length === 2) {
+      const time = rest.join(":");
+      return TIME_PATTERN.test(time)
+        ? { kind: "toggle", habitId, time }
+        : null;
+    }
+    return null;
   }
   if (data.startsWith(INPUT_PREFIX)) {
     const habitId = Number(data.slice(INPUT_PREFIX.length));
@@ -192,7 +208,7 @@ function statusSuffix(
   if (habit.type === "quantitative") {
     const value = todayCheckin.value ?? 0;
     const target = habit.targetValue ? `/${habit.targetValue}` : "";
-    const unit = habit.unit ? ` ${habit.unit}` : "";
+    const unit = habit.unit ? ` ${escapeHtml(habit.unit)}` : "";
     return ` · ${value}${target}${unit}`.trimEnd();
   }
   if (habit.type === "timed") {
@@ -312,9 +328,18 @@ function actionButton(
       },
     };
   }
+  const kind = actionCallbackKind(habit);
+  const callback: BotCallback =
+    kind === "toggle"
+      ? {
+          kind,
+          habitId: habit.id,
+          time: options.source === "reminder" ? options.time : undefined,
+        }
+      : { kind, habitId: habit.id };
   return {
     label: actionLabel(habit, done, dictionary),
-    callback: { kind: actionCallbackKind(habit), habitId: habit.id },
+    callback,
   };
 }
 
@@ -551,7 +576,7 @@ export function buildReminderMessage(
   const progressPart = isQuantitative
     ? dictionary.reminderProgress(
         quantitativeProgress(habit, todayCheckin),
-        habit.unit ? ` ${habit.unit}` : ""
+        habit.unit ? ` ${escapeHtml(habit.unit)}` : ""
       )
     : "";
   const goalPart =
@@ -584,10 +609,12 @@ export function buildReminderMessage(
         : habit.type === "negative"
           ? dictionary.reminderSlipButton
           : dictionary.reminderDoneButton;
-    keyboard.text(
-      label,
-      buildCallbackData({ kind: actionCallbackKind(habit), habitId: due.habitId })
-    );
+    const kind = actionCallbackKind(habit);
+    const callback: BotCallback =
+      kind === "toggle"
+        ? { kind, habitId: due.habitId, time: due.time }
+        : { kind, habitId: due.habitId };
+    keyboard.text(label, buildCallbackData(callback));
   }
 
   return { text, keyboard };
@@ -639,5 +666,16 @@ export function buildLanguageMessage(
   return {
     text: dictionary.languagePrompt,
     keyboard: withBackToMain(keyboard, dictionary),
+  };
+}
+
+/** Confirmation shown after a language button is pressed, in the new language. */
+export function buildLanguageChangedMessage(
+  language: BotLanguage = DEFAULT_BOT_LANGUAGE
+): BotMessage {
+  const dictionary = dictionaryFor(language);
+  return {
+    text: dictionary.languageChanged,
+    keyboard: withBackToMain(new InlineKeyboard(), dictionary),
   };
 }

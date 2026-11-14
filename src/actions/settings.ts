@@ -6,10 +6,12 @@ import { z } from "zod";
 import {
   createReminder,
   deleteReminder,
+  getBotLanguage,
   getHabitById,
   setTelegramChatId,
   updateReminderEnabled,
 } from "@/db/queries";
+import { botDictionaries, DEFAULT_BOT_LANGUAGE } from "@/bot/dictionaries";
 
 /**
  * Server Actions for the /settings page: binding the Telegram chat and
@@ -42,15 +44,11 @@ function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unexpected error";
 }
 
-/** Test message that verifies the bot is allowed to write to the chat. */
-const CHAT_BINDING_TEST_MESSAGE =
-  "Привязка успешна! Теперь я буду присылать сюда напоминания.";
-
 /** Shown when Telegram rejects the chat or the user blocked the bot. */
-const CHAT_UNREACHABLE_ERROR = "Бот не может написать в этот чат";
+const CHAT_UNREACHABLE_ERROR = "The bot cannot write to this chat";
 
 /** Shown when the bot token is missing, so no test message can be sent. */
-const BOT_TOKEN_MISSING_ERROR = "TELEGRAM_BOT_TOKEN не задан в .env";
+const BOT_TOKEN_MISSING_ERROR = "TELEGRAM_BOT_TOKEN is not set in .env";
 
 /**
  * Sends a test message through the Telegram Bot API. Only after this succeeds
@@ -60,6 +58,10 @@ async function sendChatBindingTest(chatId: number): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
   if (!token) throw new Error(BOT_TOKEN_MISSING_ERROR);
 
+  const language = await getBotLanguage();
+  const dictionary =
+    botDictionaries[language] ?? botDictionaries[DEFAULT_BOT_LANGUAGE];
+
   const response = await fetch(
     `https://api.telegram.org/bot${token}/sendMessage`,
     {
@@ -67,7 +69,7 @@ async function sendChatBindingTest(chatId: number): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
-        text: CHAT_BINDING_TEST_MESSAGE,
+        text: dictionary.chatBindingTest,
       }),
       signal: AbortSignal.timeout(10_000),
     }

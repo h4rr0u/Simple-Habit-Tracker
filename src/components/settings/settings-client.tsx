@@ -52,8 +52,8 @@ export interface HabitOption {
 export interface ReminderRow {
   id: number;
   habitId: number;
-  /** null when the habit was deleted but its reminder row still exists. */
-  habitName: string | null;
+  /** Resolved name of the (non-archived) habit this reminder belongs to. */
+  habitName: string;
   /** HH:mm (24h). */
   time: string;
   /** Day-of-week numbers (0 = Sunday … 6 = Saturday). */
@@ -405,7 +405,7 @@ function ReminderRowItem({ reminder }: { reminder: ReminderRow }) {
       <span className="font-mono text-sm tabular-nums">{reminder.time}</span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">
-          {reminder.habitName ?? t("common.unknownHabit")}
+          {reminder.habitName}
         </p>
         <p className="truncate text-xs text-muted-foreground">{days}</p>
       </div>
@@ -416,7 +416,7 @@ function ReminderRowItem({ reminder }: { reminder: ReminderRow }) {
         onClick={remove}
         disabled={pending}
         aria-label={t("common.deleteReminderFor", {
-          name: reminder.habitName ?? t("common.unknownHabit"),
+          name: reminder.habitName,
         })}
       >
         <Trash2 className="text-muted-foreground" />

@@ -59,7 +59,7 @@ export async function runReminderSweep(now: Date = new Date()): Promise<Reminder
 
   const api = new Bot(token).api;
   const day = todayKey(now);
-  const language = await getChatLanguage(chatId);
+  const language = await getChatLanguage();
 
   for (const reminder of due) {
     const claimed = await markReminderSent(reminder.reminderId, reminder.habitId, day);
