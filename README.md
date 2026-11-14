@@ -10,6 +10,8 @@ Telegram bot. Everything runs on your machine: SQLite storage, no accounts, no c
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522.9-blue)
 
+[![Support](https://img.shields.io/badge/💖_Support_the_author-FF5E5B?style=for-the-badge)](https://www.donationalerts.com/r/h4rr0u)
+
 **Current version: v1.0.0** — the first public release.
 
 ## Screenshots

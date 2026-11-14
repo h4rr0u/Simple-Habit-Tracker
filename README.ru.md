@@ -11,6 +11,8 @@ Telegram-ботом. Всё работает на вашем компьютер�
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522.9-blue)
 
+[![Support](https://img.shields.io/badge/💖_Поддержать_автора-FF5E5B?style=for-the-badge)](https://www.donationalerts.com/r/h4rr0u)
+
 **Текущая версия: v1.0.0** — первый публичный релиз.
 
 ## Скриншоты
