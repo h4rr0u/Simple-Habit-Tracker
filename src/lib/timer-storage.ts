@@ -2,22 +2,44 @@
  * Persistence helpers for the timed-habit stopwatch.
  *
  * The running segment is stored in `localStorage` under `timer_<habitId>` as
- * `{ startTime, initialElapsed }`: the epoch milliseconds when the segment
- * started plus the seconds that were already on the clock. Recomputing
+ * `{ startTime, initialElapsed, date }`: the epoch milliseconds when the
+ * segment started, the seconds that were already on the clock, and the
+ * calendar day the segment belongs to. Recomputing
  * `initialElapsed + (now - startTime)` on mount restores the stopwatch after a
- * reload or a closed tab. The key is removed whenever the timer is paused or
- * stopped.
+ * reload or a closed tab — but only when `date` is still today, so a timer
+ * left running yesterday cannot add yesterday's time to today. The key is
+ * removed whenever the timer is paused or stopped.
  */
+
+import { format, startOfDay } from "date-fns";
 
 export interface StoredTimer {
   /** Epoch milliseconds when the current running segment started. */
   startTime: number;
   /** Elapsed seconds before the current segment started. */
   initialElapsed: number;
+  /** Local calendar day the segment belongs to (YYYY-MM-DD). */
+  date: string;
 }
 
 /** Prefix of the localStorage key; the habit id is appended. */
 const STORAGE_PREFIX = "timer_";
+
+/** Shape of a calendar day key (YYYY-MM-DD). */
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Local calendar day key (YYYY-MM-DD) used to scope a stored timer. */
+export function timerDateKey(now: Date = new Date()): string {
+  return format(startOfDay(now), "yyyy-MM-dd");
+}
+
+/** True when the stored timer was started on `date` (a YYYY-MM-DD key). */
+export function isStoredTimerFromDate(
+  stored: Pick<StoredTimer, "date">,
+  date: string
+): boolean {
+  return stored.date === date;
+}
 
 /** localStorage key that holds a habit's running timer. */
 export function timerStorageKey(habitId: number): string {
@@ -36,7 +58,7 @@ export function parseStoredTimer(
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
 
-    const { startTime, initialElapsed } = parsed as Record<string, unknown>;
+    const { startTime, initialElapsed, date } = parsed as Record<string, unknown>;
     if (
       typeof startTime !== "number" ||
       !Number.isFinite(startTime) ||
@@ -51,8 +73,11 @@ export function parseStoredTimer(
     ) {
       return null;
     }
+    if (typeof date !== "string" || !DATE_KEY_PATTERN.test(date)) {
+      return null;
+    }
 
-    return { startTime, initialElapsed };
+    return { startTime, initialElapsed, date };
   } catch {
     return null;
   }

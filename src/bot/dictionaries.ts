@@ -95,6 +95,7 @@ export interface BotDictionary {
   /* Bot replies */
   foreignChat: string;
   foreignChatShort: string;
+  bindingTaken: string;
   unknownAction: string;
   habitNotFound: string;
   cancelled: string;
@@ -189,8 +190,10 @@ const ru: BotDictionary = {
   languageChanged: "Язык изменён",
 
   foreignChat:
-    "Этот бот привязан к другому чату. Отправь /start здесь, чтобы перепривязать.",
+    "Этот бот привязан к другому чату. Чтобы перепривязать его, очистите настройки в веб-интерфейсе.",
   foreignChatShort: "Этот бот привязан к другому чату",
+  bindingTaken:
+    "Этот бот уже привязан к другому пользователю. Если вы хотите перепривязать его, сначала очистите настройки в веб-интерфейсе.",
   unknownAction: "Неизвестное действие",
   habitNotFound: "Привычка не найдена",
   cancelled: "Отменено.",
@@ -285,8 +288,11 @@ const en: BotDictionary = {
   languageEnButton: "🇬🇧 English",
   languageChanged: "Language changed",
 
-  foreignChat: "This bot is linked to another chat. Send /start here to rebind it.",
+  foreignChat:
+    "This bot is linked to another chat. To rebind it, clear the settings in the web interface.",
   foreignChatShort: "This bot is linked to another chat",
+  bindingTaken:
+    "This bot is already linked to another user. If you want to rebind it, first clear the settings in the web interface.",
   unknownAction: "Unknown action",
   habitNotFound: "Habit not found",
   cancelled: "Cancelled.",

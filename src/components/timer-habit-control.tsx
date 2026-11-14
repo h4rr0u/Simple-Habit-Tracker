@@ -12,8 +12,10 @@ import { meetsHabitTarget, targetUnits } from "@/lib/habit-target";
 import { formatDuration } from "@/lib/habit-ui";
 import {
   clearStoredTimer,
+  isStoredTimerFromDate,
   readStoredTimer,
   restoredElapsed,
+  timerDateKey,
   writeStoredTimer,
 } from "@/lib/timer-storage";
 import type { Checkin, Habit } from "@/db/schema";
@@ -131,6 +133,14 @@ export function TimerHabitControl({
     const stored = readStoredTimer(habit.id);
     if (!stored) return;
 
+    // A timer left behind on a previous day must not revive today: the time
+    // it accumulated belongs to yesterday's check-in. Drop the record instead.
+    if (!isStoredTimerFromDate(stored, timerDateKey())) {
+      clearStoredTimer(habit.id);
+      toast.info(t("timer.discarded"));
+      return;
+    }
+
     const restored = restoredElapsed(stored);
     const next = target != null ? Math.min(restored, target) : restored;
     baseRef.current = next;
@@ -161,6 +171,7 @@ export function TimerHabitControl({
       writeStoredTimer(habit.id, {
         startTime: now,
         initialElapsed: target != null ? Math.min(seconds, target) : seconds,
+        date: timerDateKey(),
       });
     };
 
@@ -228,6 +239,7 @@ export function TimerHabitControl({
     writeStoredTimer(habit.id, {
       startTime: Date.now(),
       initialElapsed: elapsed,
+      date: timerDateKey(),
     });
     setRunning(true);
   };

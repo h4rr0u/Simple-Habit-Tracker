@@ -254,6 +254,15 @@ async function isForeignChat(ctx: Context): Promise<boolean> {
 bot.command("start", async (ctx) => {
   const chatId = ctx.chat?.id;
   if (chatId == null) return;
+
+  // The bot serves a single chat. Never let a /start from another chat steal
+  // the binding: the owner must clear it from the web settings first.
+  const boundChatId = await getTelegramChatId();
+  if (boundChatId != null && boundChatId !== chatId) {
+    await ctx.reply(await getBotText(chatId, "bindingTaken"));
+    return;
+  }
+
   await setTelegramChatId(chatId);
   const language = await getChatLanguage(chatId);
   const message = buildMainMenuMessage({

@@ -98,6 +98,7 @@
   "timer.cleared": "Таймер «{name}» очищен",
   "timer.saveFailed": "Не удалось сохранить время. Попробуйте еще раз",
   "timer.restored": "Восстановлен незавершенный таймер",
+  "timer.discarded": "Вчерашний таймер отменён",
   "timer.targetReached": "Цель достигнута",
   "timer.pause": "Пауза",
   "timer.resume": "Продолжить",
