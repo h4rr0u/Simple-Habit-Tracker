@@ -7,14 +7,13 @@ import {
   archiveHabit,
   claimReminderTap,
   createHabit,
-  getCheckinsForRange,
   getHabitById,
+  incrementCheckin,
   toggleCheckin,
   updateHabit,
   upsertCheckin,
 } from "@/db/queries";
 import { habitTypeEnum, type NewHabit } from "@/db/schema";
-import { incrementCheckinValue } from "@/lib/habit-target";
 import type { Schedule } from "@/types/schedule";
 
 /**
@@ -257,9 +256,7 @@ export async function incrementCheckinAction(
       return { ok: false, error: `Habit ${habitId} not found` };
     }
 
-    const [existing] = await getCheckinsForRange(habitId, date, date);
-    const value = incrementCheckinValue(existing?.value ?? null, habit.targetValue);
-    await upsertCheckin(habitId, date, value);
+    const value = await incrementCheckin(habitId, date, habit.targetValue);
     revalidateDashboard();
     return { ok: true, data: value };
   } catch (error) {
@@ -271,6 +268,8 @@ export async function incrementCheckinAction(
  * Adds one to a quantitative check-in from a reminder message. Each sent
  * reminder may be used at most once: its reminder_log row is claimed
  * atomically, so repeated taps on the same message do not inflate progress.
+ * A tap on a message whose log row no longer exists (stale button) is
+ * rejected instead of being counted.
  */
 export async function incrementReminderCheckinAction(
   input: z.input<typeof incrementReminderCheckinSchema>
@@ -291,13 +290,14 @@ export async function incrementReminderCheckinAction(
     }
 
     const tap = await claimReminderTap(reminderId, habitId, date);
+    if (tap === "not-found") {
+      return { ok: false, error: "Напоминание устарело" };
+    }
     if (tap === "already-tapped") {
       return { ok: false, error: "Это напоминание уже использовано" };
     }
 
-    const [existing] = await getCheckinsForRange(habitId, date, date);
-    const value = incrementCheckinValue(existing?.value ?? null, habit.targetValue);
-    await upsertCheckin(habitId, date, value);
+    const value = await incrementCheckin(habitId, date, habit.targetValue);
     revalidateDashboard();
     return { ok: true, data: value };
   } catch (error) {

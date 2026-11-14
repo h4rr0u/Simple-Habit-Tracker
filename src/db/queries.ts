@@ -1,4 +1,4 @@
-import { and, asc, between, eq, isNull } from "drizzle-orm";
+import { and, asc, between, eq, isNull, sql } from "drizzle-orm";
 
 import { accrueFreezes } from "@/lib/freeze";
 import { db } from "./index";
@@ -99,29 +99,75 @@ export async function getCheckinsForHabit(habitId: number): Promise<Checkin[]> {
     .orderBy(asc(checkins.date));
 }
 
-/** Inserts a check-in, or removes the existing one when it already exists. */
+/**
+ * Inserts a check-in, or removes the existing one when it already exists.
+ *
+ * Runs inside a transaction so the read and the follow-up write see the same
+ * snapshot. A concurrent insert of the same (habitId, date) is swallowed by
+ * `ON CONFLICT DO NOTHING`, so a rapid double tap never surfaces a raw
+ * SQLite UNIQUE constraint error.
+ */
 export async function toggleCheckin(
   habitId: number,
   date: string,
   value?: number | null,
   note?: string | null
 ): Promise<"checked" | "unchecked"> {
-  const [existing] = await db
-    .select()
-    .from(checkins)
-    .where(and(eq(checkins.habitId, habitId), eq(checkins.date, date)));
+  return db.transaction((tx): "checked" | "unchecked" => {
+    const existing = tx
+      .select({ id: checkins.id })
+      .from(checkins)
+      .where(and(eq(checkins.habitId, habitId), eq(checkins.date, date)))
+      .get();
 
-  if (existing) {
-    await db.delete(checkins).where(eq(checkins.id, existing.id));
-    return "unchecked";
-  }
+    if (existing) {
+      tx.delete(checkins).where(eq(checkins.id, existing.id)).run();
+      return "unchecked";
+    }
 
-  const data: NewCheckin = { habitId, date, note: note ?? null };
-  if (value !== undefined && value !== null) {
-    data.value = value;
-  }
-  await db.insert(checkins).values(data);
-  return "checked";
+    const data: NewCheckin = { habitId, date, note: note ?? null };
+    if (value !== undefined && value !== null) {
+      data.value = value;
+    }
+
+    tx.insert(checkins)
+      .values(data)
+      .onConflictDoNothing({ target: [checkins.habitId, checkins.date] })
+      .run();
+    return "checked";
+  });
+}
+
+/**
+ * Atomically adds one to a check-in for a day, capped at `targetValue` when
+ * one is configured. The row is created with value 1 when it is missing.
+ *
+ * The increment is a single `INSERT … ON CONFLICT DO UPDATE` statement, so
+ * concurrent calls cannot lose each other's writes (no read-modify-write
+ * window) and the unique (habitId, date) index is never violated.
+ * Returns the resulting stored value.
+ */
+export async function incrementCheckin(
+  habitId: number,
+  date: string,
+  targetValue?: number | null
+): Promise<number> {
+  const limit = targetValue != null && targetValue > 0 ? targetValue : null;
+  const nextValue =
+    limit == null
+      ? sql`max(coalesce(${checkins.value}, 0), 0) + 1`
+      : sql`min(max(coalesce(${checkins.value}, 0), 0) + 1, ${limit})`;
+
+  const [row] = await db
+    .insert(checkins)
+    .values({ habitId, date, value: 1 })
+    .onConflictDoUpdate({
+      target: [checkins.habitId, checkins.date],
+      set: { value: nextValue },
+    })
+    .returning({ value: checkins.value });
+
+  return row?.value ?? 1;
 }
 
 /**

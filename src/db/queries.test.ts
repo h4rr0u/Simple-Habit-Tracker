@@ -22,10 +22,12 @@ import {
   createHabit,
   createReminder,
   deleteReminder,
+  incrementCheckin,
   listReminders,
   markReminderSent,
+  toggleCheckin,
 } from "./queries";
-import { habits, reminderLog, reminders } from "./schema";
+import { checkins, habits, reminderLog, reminders } from "./schema";
 
 const migrationsDir = fileURLToPath(new URL("../../drizzle/", import.meta.url));
 
@@ -99,6 +101,47 @@ describe("reminder log queries", () => {
     await expect(deleteReminder(reminder.id)).resolves.toBe(true);
     await expect(listReminders()).resolves.toEqual([]);
     expect(await db.select().from(reminderLog)).toEqual([]);
+  });
+
+  it("increments check-in values atomically and caps them at the target", async () => {
+    const habit = await createHabit({
+      name: "Water",
+      description: null,
+      type: "quantitative",
+      color: "#3b82f6",
+      icon: null,
+      schedule: { mode: "daily" } as never,
+      targetValue: 3,
+      unit: "glasses",
+      freezeBank: 0,
+    });
+
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () => incrementCheckin(habit.id, "2026-11-13", 3))
+    );
+
+    expect(results).toEqual([1, 2, 3, 3, 3]);
+    const rows = await db.select().from(checkins);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.value).toBe(3);
+  });
+
+  it("toggles a check-in without surfacing unique constraint errors", async () => {
+    const habit = await createHabit({
+      name: "Read",
+      description: null,
+      type: "binary",
+      color: "#3b82f6",
+      icon: null,
+      schedule: { mode: "daily" } as never,
+      targetValue: null,
+      unit: null,
+      freezeBank: 0,
+    });
+
+    await expect(toggleCheckin(habit.id, "2026-11-13")).resolves.toBe("checked");
+    await expect(toggleCheckin(habit.id, "2026-11-13")).resolves.toBe("unchecked");
+    await expect(toggleCheckin(habit.id, "2026-11-13")).resolves.toBe("checked");
   });
 });
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Checkin, Habit } from "@/db/schema";
+import type { Habit } from "@/db/schema";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -8,8 +8,8 @@ vi.mock("@/db/queries", () => ({
   archiveHabit: vi.fn(),
   claimReminderTap: vi.fn(),
   createHabit: vi.fn(),
-  getCheckinsForRange: vi.fn(),
   getHabitById: vi.fn(),
+  incrementCheckin: vi.fn(),
   toggleCheckin: vi.fn(),
   updateHabit: vi.fn(),
   upsertCheckin: vi.fn(),
@@ -17,8 +17,8 @@ vi.mock("@/db/queries", () => ({
 
 import {
   claimReminderTap,
-  getCheckinsForRange,
   getHabitById,
+  incrementCheckin,
   upsertCheckin,
 } from "@/db/queries";
 import { incrementCheckinAction, incrementReminderCheckinAction } from "./habits";
@@ -41,51 +41,39 @@ function makeHabit(overrides: Partial<Habit> = {}): Habit {
   };
 }
 
-function makeCheckin(value: number | null = null): Checkin {
-  return {
-    id: 1,
-    habitId: 1,
-    date: "2026-11-13",
-    value,
-    note: null,
-    createdAt: new Date(2020, 0, 1),
-  };
-}
-
 describe("incrementCheckinAction", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(upsertCheckin).mockResolvedValue("set");
+    vi.mocked(incrementCheckin).mockResolvedValue(1);
   });
 
   it("starts an empty day at 1", async () => {
     vi.mocked(getHabitById).mockResolvedValue(makeHabit());
-    vi.mocked(getCheckinsForRange).mockResolvedValue([]);
 
     const result = await incrementCheckinAction({ habitId: 1, date: "2026-11-13" });
 
     expect(result).toEqual({ ok: true, data: 1 });
-    expect(upsertCheckin).toHaveBeenCalledWith(1, "2026-11-13", 1);
+    expect(incrementCheckin).toHaveBeenCalledWith(1, "2026-11-13", 3);
   });
 
-  it("increments an existing check-in", async () => {
+  it("returns the atomically incremented value", async () => {
     vi.mocked(getHabitById).mockResolvedValue(makeHabit());
-    vi.mocked(getCheckinsForRange).mockResolvedValue([makeCheckin(1)]);
+    vi.mocked(incrementCheckin).mockResolvedValue(2);
 
     const result = await incrementCheckinAction({ habitId: 1, date: "2026-11-13" });
 
     expect(result).toEqual({ ok: true, data: 2 });
-    expect(upsertCheckin).toHaveBeenCalledWith(1, "2026-11-13", 2);
+    expect(incrementCheckin).toHaveBeenCalledWith(1, "2026-11-13", 3);
   });
 
-  it("never exceeds the target", async () => {
+  it("passes the target through so the query can cap the value", async () => {
     vi.mocked(getHabitById).mockResolvedValue(makeHabit());
-    vi.mocked(getCheckinsForRange).mockResolvedValue([makeCheckin(3)]);
+    vi.mocked(incrementCheckin).mockResolvedValue(3);
 
     const result = await incrementCheckinAction({ habitId: 1, date: "2026-11-13" });
 
     expect(result).toEqual({ ok: true, data: 3 });
-    expect(upsertCheckin).toHaveBeenCalledWith(1, "2026-11-13", 3);
+    expect(incrementCheckin).toHaveBeenCalledWith(1, "2026-11-13", 3);
   });
 
   it("rejects unknown habits", async () => {
@@ -94,16 +82,16 @@ describe("incrementCheckinAction", () => {
     const result = await incrementCheckinAction({ habitId: 99, date: "2026-11-13" });
 
     expect(result.ok).toBe(false);
-    expect(upsertCheckin).not.toHaveBeenCalled();
+    expect(incrementCheckin).not.toHaveBeenCalled();
   });
 });
 
 describe("incrementReminderCheckinAction", () => {
   beforeEach(() => {
+    vi.resetAllMocks();
     vi.mocked(getHabitById).mockResolvedValue(makeHabit());
-    vi.mocked(getCheckinsForRange).mockResolvedValue([makeCheckin(1)]);
     vi.mocked(claimReminderTap).mockResolvedValue("claimed");
-    vi.mocked(upsertCheckin).mockResolvedValue("set");
+    vi.mocked(incrementCheckin).mockResolvedValue(2);
   });
 
   it("claims the reminder tap and increments the check-in", async () => {
@@ -115,7 +103,7 @@ describe("incrementReminderCheckinAction", () => {
 
     expect(result).toEqual({ ok: true, data: 2 });
     expect(claimReminderTap).toHaveBeenCalledWith(7, 1, "2026-11-13");
-    expect(upsertCheckin).toHaveBeenCalledWith(1, "2026-11-13", 2);
+    expect(incrementCheckin).toHaveBeenCalledWith(1, "2026-11-13", 3);
   });
 
   it("rejects a second tap on the same reminder", async () => {
@@ -128,10 +116,10 @@ describe("incrementReminderCheckinAction", () => {
     });
 
     expect(result).toEqual({ ok: false, error: "Это напоминание уже использовано" });
-    expect(upsertCheckin).not.toHaveBeenCalled();
+    expect(incrementCheckin).not.toHaveBeenCalled();
   });
 
-  it("still increments when the reminder log row is gone", async () => {
+  it("rejects stale reminder buttons whose log row is gone", async () => {
     vi.mocked(claimReminderTap).mockResolvedValue("not-found");
 
     const result = await incrementReminderCheckinAction({
@@ -140,8 +128,9 @@ describe("incrementReminderCheckinAction", () => {
       date: "2026-11-13",
     });
 
-    expect(result).toEqual({ ok: true, data: 2 });
-    expect(upsertCheckin).toHaveBeenCalledWith(1, "2026-11-13", 2);
+    expect(result).toEqual({ ok: false, error: "Напоминание устарело" });
+    expect(incrementCheckin).not.toHaveBeenCalled();
+    expect(upsertCheckin).not.toHaveBeenCalled();
   });
 
   it("rejects habits that are not quantitative", async () => {
@@ -155,6 +144,6 @@ describe("incrementReminderCheckinAction", () => {
 
     expect(result.ok).toBe(false);
     expect(claimReminderTap).not.toHaveBeenCalled();
-    expect(upsertCheckin).not.toHaveBeenCalled();
+    expect(incrementCheckin).not.toHaveBeenCalled();
   });
 });
