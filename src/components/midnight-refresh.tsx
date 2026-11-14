@@ -9,8 +9,9 @@ import { syncFreezesAction } from "@/actions/habits";
  * Refreshes the Server Components when the local calendar day changes, so
  * "today" in the UI never stays frozen on the date that was rendered when the
  * page was opened. Also reconciles freeze banks after midnight (and once on
- * mount, to catch up after the app was closed), which is what actually spends
- * freezes for days that passed without a check-in.
+ * mount, to catch up after the app was closed). This is the only automatic
+ * path that accrues and spends freezes: page renders read the stored state
+ * without writing to it.
  *
  * The day observed at mount time is compared against the current day once a
  * minute. `router.refresh()` is called at most once per day change; the
@@ -44,8 +45,10 @@ export function MidnightRefresh() {
     };
 
     // Catch up once the app is opened: days may have passed while it was shut.
+    // Refresh after any successful sync: even when nothing was spent, elapsed
+    // months may have granted freezes that the read-only render could not see.
     void syncFreezes().then((spent) => {
-      if (!cancelled && spent != null && spent > 0) router.refresh();
+      if (!cancelled && spent != null) router.refresh();
     });
 
     const checkDayChange = () => {

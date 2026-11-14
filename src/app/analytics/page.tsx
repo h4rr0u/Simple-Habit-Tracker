@@ -41,8 +41,8 @@ const searchParamsSchema = z.object({
 /**
  * Loads and aggregates everything the page renders. `todayKey` pins the
  * analysed window to the current local day.
- * `listHabits` is intentionally NOT used here: it has a freeze-accrual
- * DB-write side effect that must not run inside a read-only loader.
+ * `listHabits` is intentionally NOT used here: this loader only needs raw
+ * habits, and pages must stay free of the freeze-write path entirely.
  */
 async function loadAnalyticsData(
   periodDays: number,

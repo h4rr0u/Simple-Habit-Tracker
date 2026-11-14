@@ -256,7 +256,7 @@ export async function importDataAction(
           .values(settingsRows.map((row) => ({ key: row.key, value: row.value })))
           .run();
       }
-    });
+    }, { behavior: "immediate" });
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }

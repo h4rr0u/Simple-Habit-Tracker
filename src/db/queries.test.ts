@@ -20,7 +20,6 @@ const dbPath = vi.hoisted(() => {
 
 import { db } from "./index";
 import {
-  applyFreezeConsumption,
   claimReminderTap,
   createHabit,
   createReminder,
@@ -33,6 +32,7 @@ import {
   markReminderSent,
   syncHabitFreezes,
   toggleCheckin,
+  upsertCheckin,
 } from "./queries";
 import { checkins, habits, reminderLog, reminders, settings } from "./schema";
 
@@ -151,6 +151,34 @@ describe("reminder log queries", () => {
     await expect(toggleCheckin(habit.id, "2026-11-13")).resolves.toBe("unchecked");
     await expect(toggleCheckin(habit.id, "2026-11-13")).resolves.toBe("checked");
   });
+
+  it("upserts and clears a check-in value in one transaction", async () => {
+    const habit = await createHabit({
+      name: "Water",
+      description: null,
+      type: "quantitative",
+      color: "#3b82f6",
+      icon: null,
+      schedule: { mode: "daily" } as never,
+      targetValue: 8,
+      unit: "glasses",
+      freezeBank: 0,
+    });
+
+    await expect(upsertCheckin(habit.id, "2026-11-13", 5)).resolves.toBe("set");
+    await expect(upsertCheckin(habit.id, "2026-11-13", 2)).resolves.toBe("set");
+
+    let rows = await db.select().from(checkins);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.value).toBe(2);
+
+    await expect(upsertCheckin(habit.id, "2026-11-13", null)).resolves.toBe("cleared");
+    rows = await db.select().from(checkins);
+    expect(rows).toEqual([]);
+
+    // Clearing an absent row is a no-op, not an error.
+    await expect(upsertCheckin(habit.id, "2026-11-13", 0)).resolves.toBe("cleared");
+  });
 });
 
 describe("freeze consumption queries", () => {
@@ -175,11 +203,20 @@ describe("freeze consumption queries", () => {
   }
 
   it("clamps freeze consumption at zero", async () => {
-    const habitId = await seedHabit(2);
+    const habitId = await seedHabit(1);
+    // A single missed day spends at most the one available freeze; the bank
+    // must never go negative.
+    await toggleCheckin(habitId, dayKey(0));
+    await toggleCheckin(habitId, dayKey(-3)); // gaps at -2 and -1
 
-    await expect(applyFreezeConsumption(habitId, 2, 1)).resolves.toBe(1);
-    await expect(applyFreezeConsumption(habitId, 1, 5)).resolves.toBe(0);
-    await expect(applyFreezeConsumption(habitId, 0, 1)).resolves.toBe(0);
+    await expect(syncHabitFreezes(habitId)).resolves.toBe(1);
+
+    const [row] = await db
+      .select({ freezeBank: habits.freezeBank })
+      .from(habits)
+      .where(eq(habits.id, habitId));
+    expect(row?.freezeBank).toBe(0);
+    expect(row?.freezeBank).toBeGreaterThanOrEqual(0);
   });
 
   it("spends a missed day's freeze once and stays idempotent", async () => {
@@ -248,7 +285,10 @@ describe("freeze consumption queries", () => {
       .where(eq(habits.id, habitId))
       .run();
 
-    const first = (await listHabits()).find((habit) => habit.id === habitId);
+    // Only the write-side sync accrues and advances the persisted marker.
+    await syncHabitFreezes(habitId);
+
+    const first = await getHabitById(habitId);
     expect(first?.freezeBank).toBe(2); // every elapsed boundary is granted once
 
     await db
@@ -257,8 +297,29 @@ describe("freeze consumption queries", () => {
       .where(eq(habits.id, habitId))
       .run();
 
-    const second = (await listHabits()).find((habit) => habit.id === habitId);
+    await syncHabitFreezes(habitId);
+
+    const second = await getHabitById(habitId);
     expect(second?.freezeBank).toBe(0); // the marker advanced, so nothing regrants
+  });
+
+  it("keeps reads free of freeze writes", async () => {
+    const habitId = await seedHabit(0);
+    await db
+      .update(habits)
+      .set({ createdAt: addDays(startOfDay(new Date()), -100) })
+      .where(eq(habits.id, habitId))
+      .run();
+
+    // Read-only paths must not accrue: months elapsed, but nothing is written
+    // until a mutation or the midnight/cron sync runs.
+    const listed = (await listHabits()).find((habit) => habit.id === habitId);
+    expect(listed?.freezeBank).toBe(0);
+    expect(await db.select().from(settings)).toEqual([]);
+
+    const fetched = await getHabitById(habitId);
+    expect(fetched?.freezeBank).toBe(0);
+    expect(await db.select().from(settings)).toEqual([]);
   });
 });
 

@@ -90,30 +90,18 @@ function parseFreezeState(value: unknown): FreezeStateMap {
   return state;
 }
 
-/** Freeze state plus a dirty flag, so a read pass writes at most once. */
-interface FreezeStateContext {
-  state: FreezeStateMap;
-  dirty: boolean;
-}
-
-function readFreezeState(): FreezeStateContext {
+/**
+ * Reads the persisted freeze bookkeeping. Strictly read-only: the returned
+ * object is a fresh copy, and callers that need to change it must do so
+ * through {@link syncHabitFreezes} inside its transaction.
+ */
+function readFreezeState(): FreezeStateMap {
   const row = db
     .select()
     .from(settings)
     .where(eq(settings.key, FREEZE_STATE_KEY))
     .get();
-  return { state: parseFreezeState(row?.value), dirty: false };
-}
-
-function persistFreezeState(context: FreezeStateContext): void {
-  if (!context.dirty) return;
-  db.insert(settings)
-    .values({ key: FREEZE_STATE_KEY, value: context.state })
-    .onConflictDoUpdate({
-      target: settings.key,
-      set: { value: context.state },
-    })
-    .run();
+  return parseFreezeState(row?.value);
 }
 
 /** Paired `paid`/`blocked` gap sets for the streak walk. */
@@ -125,47 +113,22 @@ function freezeHistoryOf(entry: StoredHabitFreezeState): FreezeHistory {
 }
 
 /**
- * Atomically subtracts spent freezes from a habit's bank, clamped at zero.
+ * SQL expression `max(coalesce(freeze_bank, 0) - spend, 0)`.
  *
- * The subtraction happens inside a single `UPDATE` statement, so concurrent
- * spenders cannot lose each other's writes. `currentFreezeBank` is only used
- * to short-circuit no-op calls and as a fallback when the habit is gone.
- *
- * @returns the resulting freeze bank.
+ * Used by {@link syncHabitFreezes}: the deduction happens inside the same
+ * `UPDATE` statement that reads the balance, so concurrent spenders cannot
+ * lose each other's writes.
  */
-export async function applyFreezeConsumption(
-  habitId: number,
-  currentFreezeBank: number,
-  freezesUsed: number
-): Promise<number> {
-  const spend = Number.isFinite(freezesUsed) ? Math.max(0, Math.floor(freezesUsed)) : 0;
-  const current = Number.isFinite(currentFreezeBank)
-    ? Math.max(0, Math.floor(currentFreezeBank))
-    : 0;
-  if (spend === 0 || current === 0) return current;
-
-  const [row] = await db
-    .update(habits)
-    .set({ freezeBank: spentFreezeBank(spend) })
-    .where(eq(habits.id, habitId))
-    .returning({ freezeBank: habits.freezeBank });
-
-  return row?.freezeBank ?? Math.max(current - spend, 0);
-}
-
-/** SQL expression `max(coalesce(freeze_bank, 0) - spend, 0)`. */
 function spentFreezeBank(spend: number) {
   return sql<number>`max(coalesce(${habits.freezeBank}, 0) - ${spend}, 0)`;
 }
 
 /* ------------------------------- habits ------------------------------- */
 
-
 export async function createHabit(data: Omit<NewHabit, "id" | "createdAt">): Promise<Habit> {
   const [habit] = await db.insert(habits).values(data).returning();
   return habit;
 }
-
 export async function updateHabit(
   id: number,
   data: Partial<Omit<NewHabit, "id" | "createdAt">>
@@ -189,58 +152,22 @@ export async function archiveHabit(id: number): Promise<Habit | undefined> {
 }
 
 /**
- * Lazily accrues freezes for a habit on read using the persisted accrual
- * marker, so each monthly point is granted exactly once even while the bank is
- * at the cap. New balances and markers are written once per read pass.
- * Archived habits are skipped.
+ * Lists active (non-archived) habits, optionally including archived ones.
+ *
+ * Strictly read-only: freeze accrual is NOT applied here. Reads happen on
+ * every render, often concurrently with the bot process, so persisting from
+ * this path used to overwrite freeze state written by other transactions.
+ * {@link syncHabitFreezes} is the only place that accrues or spends freezes.
  */
-function withAccruedFreezes(
-  habit: Habit,
-  now: Date,
-  context: FreezeStateContext
-): Habit {
-  if (habit.archivedAt) return habit;
-
-  const key = String(habit.id);
-  const entry = context.state[key] ?? {};
-  const accrual = accrueFreezesSince(habit, now, parseDateKey(entry.accruedThrough));
-  const marker = accrual.accruedThrough ? toDateKey(accrual.accruedThrough) : null;
-
-  if ((entry.accruedThrough ?? null) !== marker) {
-    context.state[key] = { ...entry, accruedThrough: marker ?? undefined };
-    context.dirty = true;
-  }
-
-  if (accrual.freezeBank !== habit.freezeBank) {
-    db.update(habits)
-      .set({ freezeBank: accrual.freezeBank })
-      .where(eq(habits.id, habit.id))
-      .run();
-    return { ...habit, freezeBank: accrual.freezeBank };
-  }
-
-  return habit;
-}
-
-/** Lists active (non-archived) habits, optionally including archived ones. */
 export async function listHabits(options?: { includeArchived?: boolean }): Promise<Habit[]> {
   const query = db.select().from(habits).orderBy(asc(habits.createdAt));
-  const rows = options?.includeArchived ? await query : await query.where(isNull(habits.archivedAt));
-  const now = new Date();
-  const freezeState = readFreezeState();
-  const result = rows.map((habit) => withAccruedFreezes(habit, now, freezeState));
-  persistFreezeState(freezeState);
-  return result;
+  return options?.includeArchived ? await query : await query.where(isNull(habits.archivedAt));
 }
 
+/** Returns a single habit by id. Strictly read-only (see {@link listHabits}). */
 export async function getHabitById(id: number): Promise<Habit | undefined> {
   const [habit] = await db.select().from(habits).where(eq(habits.id, id));
-  if (!habit) return undefined;
-
-  const freezeState = readFreezeState();
-  const result = withAccruedFreezes(habit, new Date(), freezeState);
-  persistFreezeState(freezeState);
-  return result;
+  return habit;
 }
 
 /**
@@ -249,7 +176,7 @@ export async function getHabitById(id: number): Promise<Habit | undefined> {
  * {@link syncHabitFreezes}.
  */
 export async function getFreezeHistories(): Promise<Map<number, FreezeHistory>> {
-  const state = readFreezeState().state;
+  const state = readFreezeState();
   const histories = new Map<number, FreezeHistory>();
 
   for (const [key, entry] of Object.entries(state)) {
@@ -283,12 +210,11 @@ export async function syncHabitFreezes(
       .from(settings)
       .where(eq(settings.key, FREEZE_STATE_KEY))
       .get();
-    const context: FreezeStateContext = {
-      state: parseFreezeState(stateRow?.value),
-      dirty: false,
-    };
+    // The state is re-read from the database inside the transaction. Using a
+    // snapshot passed in from a caller would overwrite concurrent spends.
+    const state = parseFreezeState(stateRow?.value);
     const entryKey = String(habitId);
-    const entry = context.state[entryKey] ?? {};
+    const entry = state[entryKey] ?? {};
     let dirty = false;
 
     const accrual = accrueFreezesSince(
@@ -329,9 +255,9 @@ export async function syncHabitFreezes(
 
     let spent = 0;
     if (plan.paidUnits.length > 0) {
-      // Same clamped expression as `applyFreezeConsumption`, executed through
-      // the transaction handle so the deduction and the paid-gap state commit
-      // together.
+      // The clamped expression reads and writes the balance in one statement,
+      // executed through the transaction handle so the deduction and the
+      // paid-gap state commit together.
       const updated = tx
         .update(habits)
         .set({ freezeBank: spentFreezeBank(plan.paidUnits.length) })
@@ -351,12 +277,12 @@ export async function syncHabitFreezes(
     }
 
     if (dirty) {
-      context.state[entryKey] = entry;
+      state[entryKey] = entry;
       tx.insert(settings)
-        .values({ key: FREEZE_STATE_KEY, value: context.state })
+        .values({ key: FREEZE_STATE_KEY, value: state })
         .onConflictDoUpdate({
           target: settings.key,
-          set: { value: context.state },
+          set: { value: state },
         })
         .run();
     }
@@ -440,7 +366,7 @@ export async function toggleCheckin(
       .onConflictDoNothing({ target: [checkins.habitId, checkins.date] })
       .run();
     return "checked";
-  });
+  }, { behavior: "immediate" });
 }
 
 /**
@@ -478,31 +404,46 @@ export async function incrementCheckin(
 /**
  * Inserts a check-in or overwrites its recorded value.
  * A `value` of null or <= 0 removes the check-in (clears the day).
+ *
+ * The read and the follow-up write run in one `IMMEDIATE` transaction, so a
+ * concurrent writer (web request vs. the Telegram bot process) cannot slip
+ * between them and have its value overwritten. The insert branch also uses
+ * `ON CONFLICT DO UPDATE`, matching {@link incrementCheckin}, so the unique
+ * (habitId, date) index can never raise a raw constraint error.
  */
 export async function upsertCheckin(
   habitId: number,
   date: string,
   value: number | null
 ): Promise<"set" | "cleared"> {
-  const [existing] = await db
-    .select()
-    .from(checkins)
-    .where(and(eq(checkins.habitId, habitId), eq(checkins.date, date)));
+  return db.transaction((tx): "set" | "cleared" => {
+    const existing = tx
+      .select({ id: checkins.id })
+      .from(checkins)
+      .where(and(eq(checkins.habitId, habitId), eq(checkins.date, date)))
+      .get();
 
-  if (value === null || value <= 0) {
-    if (existing) {
-      await db.delete(checkins).where(eq(checkins.id, existing.id));
+    if (value === null || value <= 0) {
+      if (existing) {
+        tx.delete(checkins).where(eq(checkins.id, existing.id)).run();
+      }
+      return "cleared";
     }
-    return "cleared";
-  }
 
-  if (existing) {
-    await db.update(checkins).set({ value }).where(eq(checkins.id, existing.id));
+    if (existing) {
+      tx.update(checkins).set({ value }).where(eq(checkins.id, existing.id)).run();
+      return "set";
+    }
+
+    tx.insert(checkins)
+      .values({ habitId, date, value })
+      .onConflictDoUpdate({
+        target: [checkins.habitId, checkins.date],
+        set: { value },
+      })
+      .run();
     return "set";
-  }
-
-  await db.insert(checkins).values({ habitId, date, value });
-  return "set";
+  }, { behavior: "immediate" });
 }
 
 /* ------------------------------ reminders ----------------------------- */
@@ -536,7 +477,7 @@ export async function deleteReminder(id: number): Promise<boolean> {
     tx.delete(reminderLog).where(eq(reminderLog.reminderId, id)).run();
     const result = tx.delete(reminders).where(eq(reminders.id, id)).run();
     return result.changes > 0;
-  });
+  }, { behavior: "immediate" });
 }
 
 /** Enables or disables a reminder. */

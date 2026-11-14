@@ -342,7 +342,9 @@ export async function setCheckinValueAction(
 export async function syncFreezesAction(): Promise<ActionResult<number>> {
   try {
     const spent = await syncAllFreezes();
-    if (spent > 0) revalidateDashboard();
+    // Accrual can change a bank even when nothing was spent, so views are
+    // always revalidated after a sync.
+    revalidateDashboard();
     return { ok: true, data: spent };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
