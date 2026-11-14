@@ -15,7 +15,7 @@ Telegram bot. Everything runs on your machine: SQLite storage, no accounts, no c
 ## Screenshots
 
 Taken from the bundled demo dataset (`npm run db:seed:demo`), so they match what
-the app actually shows.
+the app actually shows. The Telegram bot is shown in its own section below.
 
 | Dashboard                                          | Analytics                                    |
 | -------------------------------------------------- | -------------------------------------------- |
@@ -130,6 +130,10 @@ Everything is stored locally in `data\habit-tracker.db` — no accounts and no
 cloud. To make a backup, open **Settings → Data** and export a JSON file.
 
 ## Telegram bot (optional)
+
+<p align="center">
+  <img src="docs/screenshots/telegram-bot.png" width="300" alt="Telegram bot: inline menu with today's habits, streaks and quick check-in buttons">
+</p>
 
 1. Open [@BotFather](https://t.me/BotFather) in Telegram and send `/newbot`.
 2. Choose a display name, then a username ending in `bot` (e.g. `my_habits_bot`).

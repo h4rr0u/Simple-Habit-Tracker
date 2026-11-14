@@ -35,6 +35,11 @@ Heights are fitted to the rendered content: measure the page, then use the
 largest visible element bottom (plus a small margin) so a short page is not
 padded with empty space.
 
+`telegram-bot.png` is the exception: it is a phone screenshot of the Telegram
+chat (380 × 546), taken manually from the Telegram desktop app with the bot
+running against the same demo data. It cannot be reproduced headlessly, so
+re-shoot it by hand if the bot menu changes.
+
 Let the page settle (fonts + chart animations) before capturing, otherwise the
 Recharts panels render empty. Headless Edge/Chrome works well:
 
