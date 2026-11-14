@@ -96,7 +96,8 @@
 
   "timer.saved": "Saved {duration} for \"{name}\"",
   "timer.cleared": "\"{name}\" timer cleared",
-  "timer.saveFailed": "Failed to save timer",
+  "timer.saveFailed": "Failed to save time. Please try again.",
+  "timer.restored": "Restored an unfinished timer",
   "timer.targetReached": "Target reached",
   "timer.pause": "Pause",
   "timer.resume": "Resume",

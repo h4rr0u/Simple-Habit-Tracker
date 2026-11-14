@@ -8,15 +8,25 @@ import { setCheckinValueAction } from "@/actions/habits";
 import { notifyHabitMutation } from "@/components/habit-sync";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
-import { translateActionError } from "@/lib/action-error";
 import { meetsHabitTarget, targetUnits } from "@/lib/habit-target";
 import { formatDuration } from "@/lib/habit-ui";
+import {
+  clearStoredTimer,
+  readStoredTimer,
+  restoredElapsed,
+  writeStoredTimer,
+} from "@/lib/timer-storage";
 import type { Checkin, Habit } from "@/db/schema";
 
 /**
  * Simple stopwatch for `timed` habits (no background mode): start / pause,
  * save elapsed seconds into today's check-in. Pausing saves automatically, so
  * the value survives navigation and is visible in the other views.
+ *
+ * While running, the segment is mirrored to localStorage (`timer_<habitId>`)
+ * so a reload or a closed tab can restore the stopwatch instead of losing the
+ * time. When a save fails, the UI rolls back to the value that is actually in
+ * the database instead of showing time that was never persisted.
  *
  * The stopwatch never runs past the habit target: once the target is reached
  * it stops and saves exactly the target value, so a completed day cannot keep
@@ -62,6 +72,15 @@ export function TimerHabitControl({
   const baseRef = useRef(target != null ? Math.min(serverValue, target) : serverValue);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastServerValueRef = useRef(serverValue);
+  const restoreAttemptedRef = useRef(false);
+
+  /** Puts the visible value back to what is actually stored on the server. */
+  const rollback = () => {
+    const previous = lastServerValueRef.current;
+    const next = target != null ? Math.min(previous, target) : previous;
+    baseRef.current = next;
+    setElapsed(next);
+  };
 
   const save = async (seconds: number) => {
     setPending(true);
@@ -84,9 +103,11 @@ export function TimerHabitControl({
             : t("timer.cleared", { name: habit.name })
         );
       } else {
-        toast.error(translateActionError(t, result.error));
+        rollback();
+        toast.error(t("timer.saveFailed"));
       }
     } catch {
+      rollback();
       toast.error(t("timer.saveFailed"));
     } finally {
       setPending(false);
@@ -99,6 +120,57 @@ export function TimerHabitControl({
   useEffect(() => {
     saveRef.current = save;
   });
+
+  // Restore a timer that was still running when the page was reloaded or the
+  // tab was closed. Runs once per mount: afterwards the stored state is only
+  // a mirror of the live stopwatch.
+  useEffect(() => {
+    if (restoreAttemptedRef.current) return;
+    restoreAttemptedRef.current = true;
+
+    const stored = readStoredTimer(habit.id);
+    if (!stored) return;
+
+    const restored = restoredElapsed(stored);
+    const next = target != null ? Math.min(restored, target) : restored;
+    baseRef.current = next;
+    setElapsed(next);
+    toast.info(t("timer.restored"));
+
+    if (target != null && next >= target) {
+      // The target was reached while the page was closed: settle on it.
+      clearStoredTimer(habit.id);
+      setRunning(false);
+      void saveRef.current(target);
+      return;
+    }
+
+    setRunning(true);
+  }, [habit.id, target, t]);
+
+  // Make sure the running segment is written synchronously before the page
+  // goes away; the browser may not give us time for a server request.
+  useEffect(() => {
+    if (!running) return;
+
+    const flush = () => {
+      if (startRef.current == null) return;
+      const now = Date.now();
+      const seconds =
+        Math.floor((now - startRef.current) / 1000) + baseRef.current;
+      writeStoredTimer(habit.id, {
+        startTime: now,
+        initialElapsed: target != null ? Math.min(seconds, target) : seconds,
+      });
+    };
+
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, [running, target, habit.id]);
 
   useEffect(() => {
     if (!running) {
@@ -124,6 +196,7 @@ export function TimerHabitControl({
         baseRef.current = target;
         setElapsed(target);
         setRunning(false);
+        clearStoredTimer(habit.id);
         void saveRef.current(target);
         return;
       }
@@ -137,7 +210,7 @@ export function TimerHabitControl({
         intervalRef.current = null;
       }
     };
-  }, [running, target]);
+  }, [running, target, habit.id]);
 
   // Sync external changes (another tab, the bot or a refresh) without
   // clobbering the live stopwatch or the value that is currently being saved.
@@ -150,17 +223,27 @@ export function TimerHabitControl({
     baseRef.current = next;
   }, [serverValue, running, target]);
 
+  const start = () => {
+    baseRef.current = elapsed;
+    writeStoredTimer(habit.id, {
+      startTime: Date.now(),
+      initialElapsed: elapsed,
+    });
+    setRunning(true);
+  };
+
   const pause = () => {
     if (!running) return;
     setRunning(false);
     baseRef.current = elapsed;
+    clearStoredTimer(habit.id);
     void save(elapsed);
   };
 
   const clear = () => {
     if (running || pending) return;
+    clearStoredTimer(habit.id);
     baseRef.current = 0;
-    lastServerValueRef.current = 0;
     setElapsed(0);
     void save(0);
   };
@@ -213,7 +296,7 @@ export function TimerHabitControl({
         <Button
           variant={done ? "secondary" : "default"}
           size="sm"
-          onClick={() => setRunning(true)}
+          onClick={start}
           disabled={disabled || pending}
           className="ml-auto"
         >
