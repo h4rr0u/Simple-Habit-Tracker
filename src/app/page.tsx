@@ -4,7 +4,7 @@ import { format, startOfDay } from "date-fns";
 import { DashboardClient } from "@/components/dashboard-client";
 import { db } from "@/db";
 import { checkins } from "@/db/schema";
-import { listHabits } from "@/db/queries";
+import { listHabits, getFreezeHistories } from "@/db/queries";
 import {
   buildCompletionCheckins,
   isHabitDayComplete,
@@ -24,6 +24,7 @@ export default async function DashboardPage() {
   const now = new Date();
   const today = format(startOfDay(now), "yyyy-MM-dd");
   const allHabits = await listHabits({ includeArchived: false });
+  const freezeHistories = await getFreezeHistories();
 
   const habitIds = allHabits.map((h) => h.id);
   const allCheckins = habitIds.length
@@ -45,7 +46,8 @@ export default async function DashboardPage() {
         schedule,
         habit.freezeBank,
         now,
-        habit.createdAt
+        habit.createdAt,
+        freezeHistories.get(habit.id)
       );
 
       // Negative habits are inverted: a day is complete when no slip exists.
@@ -71,7 +73,8 @@ export default async function DashboardPage() {
         schedule,
         habit.freezeBank,
         now,
-        habit.createdAt
+        habit.createdAt,
+        freezeHistories.get(habit.id)
       );
       return { habit, streak: streak.streak };
     })

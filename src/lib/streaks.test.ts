@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Schedule } from "@/types/schedule";
 import {
   calculateCurrentStreak,
+  calculateFreezeConsumption,
   calculateLongestStreak,
   getCompletionRate,
   getDayOfWeekPatterns,
@@ -87,6 +88,107 @@ describe("calculateCurrentStreak (daily)", () => {
     expect(result.streak).toBe(3); // Nov 4 frozen, Nov 5..6; walk stops at Nov 2
     expect(result.freezesUsed).toBe(1);
     expect(result.freezesRemaining).toBe(0);
+  });
+
+  it("settles a trailing missed day when the run behind it is reachable", () => {
+    // Nov 4 and 5 missed, today still unchecked, Nov 3 done, bank of 2.
+    const result = calculateCurrentStreak([c(2025, 11, 3)], DAILY, 2, NOW);
+    expect(result.streak).toBe(1);
+    expect(result.freezesUsed).toBe(2);
+    expect(result.freezesRemaining).toBe(0);
+  });
+
+  it("refunds leading gaps when the bank cannot carry the run", () => {
+    // Nov 3-5 missed, Nov 2 done, bank of 2: the run is already lost, so the
+    // two freezes must not be consumed for nothing.
+    const checkins = [c(2025, 11, 2)];
+    const result = calculateCurrentStreak(checkins, DAILY, 2, NOW);
+    expect(result.streak).toBe(0);
+    expect(result.freezesUsed).toBe(0);
+    expect(result.freezesRemaining).toBe(2);
+
+    const plan = calculateFreezeConsumption(checkins, DAILY, 2, NOW);
+    expect(plan.paidUnits).toEqual([]);
+    expect(plan.blockedUnit).toBe("2025-11-03");
+  });
+});
+
+describe("calculateCurrentStreak with persisted freeze history", () => {
+  it("does not spend a freeze again for a gap that was already paid", () => {
+    const checkins = [c(2025, 11, 2), c(2025, 11, 3), c(2025, 11, 5), c(2025, 11, 6)];
+    const result = calculateCurrentStreak(checkins, DAILY, 1, NOW, new Date(0), {
+      paid: new Set(["2025-11-04"]),
+    });
+
+    expect(result.streak).toBe(4);
+    expect(result.freezesUsed).toBe(0);
+    expect(result.freezesRemaining).toBe(1);
+  });
+
+  it("keeps a blocked gap broken even when a freeze is available", () => {
+    const checkins = [c(2025, 11, 2), c(2025, 11, 3), c(2025, 11, 5), c(2025, 11, 6)];
+    const result = calculateCurrentStreak(checkins, DAILY, 1, NOW, new Date(0), {
+      blocked: new Set(["2025-11-04"]),
+    });
+
+    expect(result.streak).toBe(2); // Nov 5 and Nov 6 only
+    expect(result.freezesUsed).toBe(0);
+    expect(result.freezesRemaining).toBe(1);
+  });
+
+  it("reports the gaps a walk would pay and the one that blocks it", () => {
+    const checkins = [c(2025, 11, 1), c(2025, 11, 3), c(2025, 11, 5), c(2025, 11, 6)];
+    const plan = calculateFreezeConsumption(checkins, DAILY, 1, NOW);
+
+    expect(plan.paidUnits).toEqual(["2025-11-04"]);
+    expect(plan.blockedUnit).toBe("2025-11-02");
+    expect(plan.freezesRemaining).toBe(0);
+  });
+
+  it("recovers a paid weekly gap without spending again", () => {
+    const weekly: Schedule = { mode: "weekly", timesPerWeek: 3 };
+    const checkins = [
+      c(2025, 10, 27),
+      c(2025, 10, 29),
+      c(2025, 11, 3),
+      c(2025, 11, 4),
+      c(2025, 11, 6),
+    ];
+    // The week of Oct 27 is under quota but was paid earlier.
+    const result = calculateCurrentStreak(checkins, weekly, 1, NOW, new Date(0), {
+      paid: new Set(["2025-10-27"]),
+    });
+
+    expect(result.streak).toBe(1); // the current week only (paid weeks do not grow)
+    expect(result.freezesUsed).toBe(0);
+    expect(result.freezesRemaining).toBe(1);
+  });
+
+  it("pays for a trailing missed day so opening the app keeps the run", () => {
+    // Nov 5 was missed and today (Nov 6) is still unchecked. There is no
+    // completed day newer than the gap, but the run behind it is real, so a
+    // freeze should cover it when the app settles the day.
+    const checkins = [c(2025, 11, 1), c(2025, 11, 2), c(2025, 11, 3), c(2025, 11, 4)];
+    const result = calculateCurrentStreak(checkins, DAILY, 1, NOW);
+
+    expect(result.streak).toBe(4);
+    expect(result.freezesUsed).toBe(1);
+    expect(result.freezesRemaining).toBe(0);
+
+    const plan = calculateFreezeConsumption(checkins, DAILY, 1, NOW);
+    expect(plan.paidUnits).toEqual(["2025-11-05"]);
+    expect(plan.blockedUnit).toBeNull();
+  });
+
+  it("does not spend a trailing weekly freeze when nothing completed lies behind it", () => {
+    const weekly: Schedule = { mode: "weekly", timesPerWeek: 3 };
+    // Current week and last week are both under quota; no completed week exists.
+    const checkins = [c(2025, 10, 29), c(2025, 11, 4)];
+    const result = calculateCurrentStreak(checkins, weekly, 1, NOW);
+
+    expect(result.streak).toBe(0);
+    expect(result.freezesUsed).toBe(0);
+    expect(result.freezesRemaining).toBe(1);
   });
 });
 

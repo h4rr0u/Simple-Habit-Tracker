@@ -205,6 +205,10 @@ export function DashboardClient({
                       <Flame className="size-3 text-orange-400" />
                       {item.streak}
                     </Badge>
+                    <Badge variant="outline" className="gap-1" title={t("dashboard.freezes")}>
+                      <Snowflake className="size-3 text-sky-400" />
+                      {item.habit.freezeBank}
+                    </Badge>
                     <HabitCheckinControl
                       habit={item.habit}
                       today={today}

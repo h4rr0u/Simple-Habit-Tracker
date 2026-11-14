@@ -3,7 +3,7 @@ import { format, startOfDay } from "date-fns";
 
 import { db } from "@/db";
 import { checkins } from "@/db/schema";
-import { listHabits } from "@/db/queries";
+import { getFreezeHistories, listHabits } from "@/db/queries";
 import { buildCompletionCheckins } from "@/lib/habit-target";
 import { calculateCurrentStreak } from "@/lib/streaks";
 import { isHabitDueOn, type Schedule } from "@/types/schedule";
@@ -33,6 +33,7 @@ export async function getTodayViews(now: Date = new Date()): Promise<TodayHabitV
     .from(checkins)
     .where(inArray(checkins.habitId, habits.map((habit) => habit.id)))
     .orderBy(asc(checkins.date));
+  const freezeHistories = await getFreezeHistories();
 
   return habits.map((habit) => {
     const schedule = habit.schedule as unknown as Schedule;
@@ -44,7 +45,8 @@ export async function getTodayViews(now: Date = new Date()): Promise<TodayHabitV
       schedule,
       habit.freezeBank,
       now,
-      habit.createdAt
+      habit.createdAt,
+      freezeHistories.get(habit.id)
     );
     return { habit, todayCheckin, streak };
   });

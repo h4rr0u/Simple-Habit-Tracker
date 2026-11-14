@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { HabitDetailView } from "@/components/habit-detail-view";
 import { db } from "@/db";
 import { checkins } from "@/db/schema";
-import { getHabitById } from "@/db/queries";
+import { getFreezeHistories, getHabitById } from "@/db/queries";
 import { buildCompletionCheckins } from "@/lib/habit-target";
 import { buildHeatmap } from "@/lib/heatmap";
 import { calculateCurrentStreak, calculateLongestStreak, getCompletionRate } from "@/lib/streaks";
@@ -28,6 +28,8 @@ export default async function HabitDetailPage({
   const habit = await getHabitById(habitId);
   if (!habit) notFound();
 
+  const freezeHistories = await getFreezeHistories();
+
   const rows = await db
     .select()
     .from(checkins)
@@ -43,7 +45,8 @@ export default async function HabitDetailPage({
     schedule,
     habit.freezeBank,
     now,
-    habit.createdAt
+    habit.createdAt,
+    freezeHistories.get(habitId)
   );
   const longest = calculateLongestStreak(completion, schedule, habit.createdAt);
   const rate90 = getCompletionRate(

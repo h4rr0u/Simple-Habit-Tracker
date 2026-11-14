@@ -8,6 +8,7 @@ import {
   getTelegramChatId,
   setBotLanguage,
   setTelegramChatId,
+  syncHabitFreezes,
   toggleCheckin,
   upsertCheckin,
 } from "@/db/queries";
@@ -430,6 +431,7 @@ bot.on("callback_query:data", async (ctx) => {
 
   if (callback.kind === "toggle") {
     const result = await toggleCheckin(habit.id, todayKey());
+    await syncHabitFreezes(habit.id);
     const messageId = ctx.callbackQuery.message?.message_id;
     if (messageId != null) {
       await editTodayMessage(ctx.api, chatId, messageId);
@@ -506,6 +508,7 @@ bot.on("message:text", async (ctx) => {
   // Timed habits store seconds; the bot asks for minutes.
   const stored = habit.type === "timed" ? value * 60 : value;
   const result = await upsertCheckin(habit.id, todayKey(), stored > 0 ? stored : null);
+  await syncHabitFreezes(habit.id);
   pendingInputs.delete(chatId);
 
   if (result === "set" && pending.messageId != null) {

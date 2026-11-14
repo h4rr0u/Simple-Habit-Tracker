@@ -10,6 +10,8 @@ vi.mock("@/db/queries", () => ({
   createHabit: vi.fn(),
   getHabitById: vi.fn(),
   incrementCheckin: vi.fn(),
+  syncAllFreezes: vi.fn(),
+  syncHabitFreezes: vi.fn(),
   toggleCheckin: vi.fn(),
   updateHabit: vi.fn(),
   upsertCheckin: vi.fn(),

@@ -9,6 +9,8 @@ import {
   createHabit,
   getHabitById,
   incrementCheckin,
+  syncAllFreezes,
+  syncHabitFreezes,
   toggleCheckin,
   updateHabit,
   upsertCheckin,
@@ -229,6 +231,7 @@ export async function toggleCheckinAction(
       return { ok: false, error: `Habit ${habitId} not found` };
     }
     const result = await toggleCheckin(habitId, date, value ?? undefined);
+    await syncHabitFreezes(habitId);
     revalidateDashboard();
     return { ok: true, data: result };
   } catch (error) {
@@ -257,6 +260,7 @@ export async function incrementCheckinAction(
     }
 
     const value = await incrementCheckin(habitId, date, habit.targetValue);
+    await syncHabitFreezes(habitId);
     revalidateDashboard();
     return { ok: true, data: value };
   } catch (error) {
@@ -298,6 +302,7 @@ export async function incrementReminderCheckinAction(
     }
 
     const value = await incrementCheckin(habitId, date, habit.targetValue);
+    await syncHabitFreezes(habitId);
     revalidateDashboard();
     return { ok: true, data: value };
   } catch (error) {
@@ -321,8 +326,24 @@ export async function setCheckinValueAction(
       return { ok: false, error: `Habit ${habitId} not found` };
     }
     const result = await upsertCheckin(habitId, date, value ?? null);
+    await syncHabitFreezes(habitId);
     revalidateDashboard();
     return { ok: true, data: result };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+/**
+ * Reconciles freeze banks for all active habits. Called by the client's
+ * midnight/catch-up hook; returns the number of freezes spent so the UI can
+ * refresh only when something actually changed.
+ */
+export async function syncFreezesAction(): Promise<ActionResult<number>> {
+  try {
+    const spent = await syncAllFreezes();
+    if (spent > 0) revalidateDashboard();
+    return { ok: true, data: spent };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }

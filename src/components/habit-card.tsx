@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Flame } from "lucide-react";
+import { Flame, Snowflake } from "lucide-react";
 
 import { HabitCheckinControl } from "@/components/habit-checkin-control";
 import { useLanguage } from "@/components/language-provider";
@@ -98,6 +98,10 @@ export function HabitCard({
           <Badge variant="secondary" className="gap-1">
             <Flame className="size-3 text-orange-400" />
             {streak}
+          </Badge>
+          <Badge variant="outline" className="gap-1" title={t("dashboard.freezes")}>
+            <Snowflake className="size-3 text-sky-400" />
+            {habit.freezeBank}
           </Badge>
           {!isDueToday ? (
             <Badge variant="outline">{t("habits.card.restDay")}</Badge>

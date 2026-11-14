@@ -1,6 +1,12 @@
+import { format, startOfDay } from "date-fns";
 import { and, asc, between, eq, isNull, sql } from "drizzle-orm";
 
-import { accrueFreezes } from "@/lib/freeze";
+import { accrueFreezesSince } from "@/lib/freeze";
+import { buildCompletionCheckins } from "@/lib/habit-target";
+import {
+  calculateFreezeConsumption,
+  type FreezeHistory,
+} from "@/lib/streaks";
 import { db } from "./index";
 import {
   checkins,
@@ -19,7 +25,141 @@ import {
 } from "./schema";
 import type { Schedule } from "@/types/schedule";
 
+/* ---------------------------- freeze state ---------------------------- */
+
+/**
+ * Settings key holding the persisted freeze bookkeeping. No schema change is
+ * needed: the key-value `settings` table already exists.
+ *
+ * Shape: `{ [habitId]: { accruedThrough, paid, blocked } }`.
+ */
+export const FREEZE_STATE_KEY = "freezeState";
+
+/** Persisted freeze bookkeeping for one habit. */
+interface StoredHabitFreezeState {
+  /** Latest monthly accrual point already granted (YYYY-MM-DD). */
+  accruedThrough?: string;
+  /** Gaps already covered by a spent freeze. */
+  paid?: string[];
+  /** Gaps that ended a streak for lack of a freeze. */
+  blocked?: string[];
+}
+
+/** Parsed freeze bookkeeping keyed by string habit id. */
+type FreezeStateMap = Record<string, StoredHabitFreezeState>;
+
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Local ISO day key (YYYY-MM-DD). */
+function toDateKey(date: Date): string {
+  return format(startOfDay(date), "yyyy-MM-dd");
+}
+
+/** Parses a stored ISO day key; malformed values are ignored. */
+function parseDateKey(key: string | undefined | null): Date | null {
+  if (!key || !DATE_KEY_RE.test(key)) return null;
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+/** Validates and normalizes the JSON stored under {@link FREEZE_STATE_KEY}. */
+function parseFreezeState(value: unknown): FreezeStateMap {
+  if (!value || typeof value !== "object") return {};
+
+  const state: FreezeStateMap = {};
+  for (const [habitId, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (!raw || typeof raw !== "object") continue;
+    const entry = raw as Record<string, unknown>;
+
+    const parsed: StoredHabitFreezeState = {};
+    if (typeof entry.accruedThrough === "string" && DATE_KEY_RE.test(entry.accruedThrough)) {
+      parsed.accruedThrough = entry.accruedThrough;
+    }
+    if (isStringArray(entry.paid)) {
+      parsed.paid = [...new Set(entry.paid.filter((key) => DATE_KEY_RE.test(key)))];
+    }
+    if (isStringArray(entry.blocked)) {
+      parsed.blocked = [...new Set(entry.blocked.filter((key) => DATE_KEY_RE.test(key)))];
+    }
+    state[habitId] = parsed;
+  }
+  return state;
+}
+
+/** Freeze state plus a dirty flag, so a read pass writes at most once. */
+interface FreezeStateContext {
+  state: FreezeStateMap;
+  dirty: boolean;
+}
+
+function readFreezeState(): FreezeStateContext {
+  const row = db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, FREEZE_STATE_KEY))
+    .get();
+  return { state: parseFreezeState(row?.value), dirty: false };
+}
+
+function persistFreezeState(context: FreezeStateContext): void {
+  if (!context.dirty) return;
+  db.insert(settings)
+    .values({ key: FREEZE_STATE_KEY, value: context.state })
+    .onConflictDoUpdate({
+      target: settings.key,
+      set: { value: context.state },
+    })
+    .run();
+}
+
+/** Paired `paid`/`blocked` gap sets for the streak walk. */
+function freezeHistoryOf(entry: StoredHabitFreezeState): FreezeHistory {
+  return {
+    paid: new Set(entry.paid ?? []),
+    blocked: new Set(entry.blocked ?? []),
+  };
+}
+
+/**
+ * Atomically subtracts spent freezes from a habit's bank, clamped at zero.
+ *
+ * The subtraction happens inside a single `UPDATE` statement, so concurrent
+ * spenders cannot lose each other's writes. `currentFreezeBank` is only used
+ * to short-circuit no-op calls and as a fallback when the habit is gone.
+ *
+ * @returns the resulting freeze bank.
+ */
+export async function applyFreezeConsumption(
+  habitId: number,
+  currentFreezeBank: number,
+  freezesUsed: number
+): Promise<number> {
+  const spend = Number.isFinite(freezesUsed) ? Math.max(0, Math.floor(freezesUsed)) : 0;
+  const current = Number.isFinite(currentFreezeBank)
+    ? Math.max(0, Math.floor(currentFreezeBank))
+    : 0;
+  if (spend === 0 || current === 0) return current;
+
+  const [row] = await db
+    .update(habits)
+    .set({ freezeBank: spentFreezeBank(spend) })
+    .where(eq(habits.id, habitId))
+    .returning({ freezeBank: habits.freezeBank });
+
+  return row?.freezeBank ?? Math.max(current - spend, 0);
+}
+
+/** SQL expression `max(coalesce(freeze_bank, 0) - spend, 0)`. */
+function spentFreezeBank(spend: number) {
+  return sql<number>`max(coalesce(${habits.freezeBank}, 0) - ${spend}, 0)`;
+}
+
 /* ------------------------------- habits ------------------------------- */
+
 
 export async function createHabit(data: Omit<NewHabit, "id" | "createdAt">): Promise<Habit> {
   const [habit] = await db.insert(habits).values(data).returning();
@@ -49,17 +189,37 @@ export async function archiveHabit(id: number): Promise<Habit | undefined> {
 }
 
 /**
- * Lazily accrues freezes for a habit on read: when the monthly accrual
- * points (the 1st of each month since `createdAt`) grant more than the
- * stored balance, the new balance is persisted and returned. Habits at
- * the cap are left untouched. Archived habits are skipped.
+ * Lazily accrues freezes for a habit on read using the persisted accrual
+ * marker, so each monthly point is granted exactly once even while the bank is
+ * at the cap. New balances and markers are written once per read pass.
+ * Archived habits are skipped.
  */
-function withAccruedFreezes(habit: Habit, now: Date): Habit {
+function withAccruedFreezes(
+  habit: Habit,
+  now: Date,
+  context: FreezeStateContext
+): Habit {
   if (habit.archivedAt) return habit;
-  const next = accrueFreezes(habit, now);
-  if (next === habit.freezeBank) return habit;
-  db.update(habits).set({ freezeBank: next }).where(eq(habits.id, habit.id)).run();
-  return { ...habit, freezeBank: next };
+
+  const key = String(habit.id);
+  const entry = context.state[key] ?? {};
+  const accrual = accrueFreezesSince(habit, now, parseDateKey(entry.accruedThrough));
+  const marker = accrual.accruedThrough ? toDateKey(accrual.accruedThrough) : null;
+
+  if ((entry.accruedThrough ?? null) !== marker) {
+    context.state[key] = { ...entry, accruedThrough: marker ?? undefined };
+    context.dirty = true;
+  }
+
+  if (accrual.freezeBank !== habit.freezeBank) {
+    db.update(habits)
+      .set({ freezeBank: accrual.freezeBank })
+      .where(eq(habits.id, habit.id))
+      .run();
+    return { ...habit, freezeBank: accrual.freezeBank };
+  }
+
+  return habit;
 }
 
 /** Lists active (non-archived) habits, optionally including archived ones. */
@@ -67,15 +227,160 @@ export async function listHabits(options?: { includeArchived?: boolean }): Promi
   const query = db.select().from(habits).orderBy(asc(habits.createdAt));
   const rows = options?.includeArchived ? await query : await query.where(isNull(habits.archivedAt));
   const now = new Date();
-  return rows.map((habit) => withAccruedFreezes(habit, now));
+  const freezeState = readFreezeState();
+  const result = rows.map((habit) => withAccruedFreezes(habit, now, freezeState));
+  persistFreezeState(freezeState);
+  return result;
 }
 
 export async function getHabitById(id: number): Promise<Habit | undefined> {
   const [habit] = await db.select().from(habits).where(eq(habits.id, id));
-  return habit ? withAccruedFreezes(habit, new Date()) : undefined;
+  if (!habit) return undefined;
+
+  const freezeState = readFreezeState();
+  const result = withAccruedFreezes(habit, new Date(), freezeState);
+  persistFreezeState(freezeState);
+  return result;
 }
 
-/* ------------------------------- checkins ----------------------------- */
+/**
+ * Returns the persisted `paid`/`blocked` gap sets for every habit. Renders use
+ * this read-only view to keep the streak walk stable; mutations go through
+ * {@link syncHabitFreezes}.
+ */
+export async function getFreezeHistories(): Promise<Map<number, FreezeHistory>> {
+  const state = readFreezeState().state;
+  const histories = new Map<number, FreezeHistory>();
+
+  for (const [key, entry] of Object.entries(state)) {
+    const habitId = Number(key);
+    if (!Number.isInteger(habitId) || habitId <= 0) continue;
+    histories.set(habitId, freezeHistoryOf(entry));
+  }
+  return histories;
+}
+
+/**
+ * Reconciles one habit's freezes in a single synchronous transaction:
+ * accrues elapsed monthly points, walks the streak with the persisted
+ * paid/blocked history, deducts the freezes the walk actually needs, and
+ * records the newly paid/blocked gaps.
+ *
+ * This is the write side of the freeze system; renders only read it.
+ *
+ * @returns the number of freezes spent by this call (0 when already settled).
+ */
+export async function syncHabitFreezes(
+  habitId: number,
+  now: Date = new Date()
+): Promise<number> {
+  return db.transaction((tx): number => {
+    const habit = tx.select().from(habits).where(eq(habits.id, habitId)).get();
+    if (!habit || habit.archivedAt) return 0;
+
+    const stateRow = tx
+      .select()
+      .from(settings)
+      .where(eq(settings.key, FREEZE_STATE_KEY))
+      .get();
+    const context: FreezeStateContext = {
+      state: parseFreezeState(stateRow?.value),
+      dirty: false,
+    };
+    const entryKey = String(habitId);
+    const entry = context.state[entryKey] ?? {};
+    let dirty = false;
+
+    const accrual = accrueFreezesSince(
+      habit,
+      now,
+      parseDateKey(entry.accruedThrough)
+    );
+    let freezeBank = habit.freezeBank;
+    if (accrual.freezeBank !== freezeBank) {
+      tx.update(habits)
+        .set({ freezeBank: accrual.freezeBank })
+        .where(eq(habits.id, habitId))
+        .run();
+      freezeBank = accrual.freezeBank;
+    }
+
+    const marker = accrual.accruedThrough ? toDateKey(accrual.accruedThrough) : null;
+    if ((entry.accruedThrough ?? null) !== marker) {
+      entry.accruedThrough = marker ?? undefined;
+      dirty = true;
+    }
+
+    const rows = tx
+      .select()
+      .from(checkins)
+      .where(eq(checkins.habitId, habitId))
+      .orderBy(asc(checkins.date))
+      .all();
+    const completion = buildCompletionCheckins(habit, rows, now);
+    const plan = calculateFreezeConsumption(
+      completion,
+      habit.schedule as unknown as Schedule,
+      freezeBank,
+      now,
+      habit.createdAt,
+      freezeHistoryOf(entry)
+    );
+
+    let spent = 0;
+    if (plan.paidUnits.length > 0) {
+      // Same clamped expression as `applyFreezeConsumption`, executed through
+      // the transaction handle so the deduction and the paid-gap state commit
+      // together.
+      const updated = tx
+        .update(habits)
+        .set({ freezeBank: spentFreezeBank(plan.paidUnits.length) })
+        .where(eq(habits.id, habitId))
+        .returning({ freezeBank: habits.freezeBank })
+        .get();
+      freezeBank = updated?.freezeBank ?? Math.max(freezeBank - plan.paidUnits.length, 0);
+      spent = plan.paidUnits.length;
+
+      entry.paid = [...new Set([...(entry.paid ?? []), ...plan.paidUnits])];
+      dirty = true;
+    }
+
+    if (plan.blockedUnit && !(entry.blocked ?? []).includes(plan.blockedUnit)) {
+      entry.blocked = [...(entry.blocked ?? []), plan.blockedUnit];
+      dirty = true;
+    }
+
+    if (dirty) {
+      context.state[entryKey] = entry;
+      tx.insert(settings)
+        .values({ key: FREEZE_STATE_KEY, value: context.state })
+        .onConflictDoUpdate({
+          target: settings.key,
+          set: { value: context.state },
+        })
+        .run();
+    }
+
+    return spent;
+  }, { behavior: "immediate" });
+}
+
+/**
+ * Reconciles every active habit, for the midnight/catch-up sync.
+ * @returns the total number of freezes spent.
+ */
+export async function syncAllFreezes(now: Date = new Date()): Promise<number> {
+  const rows = await db
+    .select({ id: habits.id })
+    .from(habits)
+    .where(isNull(habits.archivedAt));
+
+  let spent = 0;
+  for (const row of rows) {
+    spent += await syncHabitFreezes(row.id, now);
+  }
+  return spent;
+}
 
 /** Returns check-ins for a habit within an inclusive ISO date range (YYYY-MM-DD). */
 export async function getCheckinsForRange(

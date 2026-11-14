@@ -2,6 +2,8 @@ import { readFileSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { addDays, format, startOfDay } from "date-fns";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -18,16 +20,21 @@ const dbPath = vi.hoisted(() => {
 
 import { db } from "./index";
 import {
+  applyFreezeConsumption,
   claimReminderTap,
   createHabit,
   createReminder,
   deleteReminder,
+  getFreezeHistories,
+  getHabitById,
   incrementCheckin,
+  listHabits,
   listReminders,
   markReminderSent,
+  syncHabitFreezes,
   toggleCheckin,
 } from "./queries";
-import { checkins, habits, reminderLog, reminders } from "./schema";
+import { checkins, habits, reminderLog, reminders, settings } from "./schema";
 
 const migrationsDir = fileURLToPath(new URL("../../drizzle/", import.meta.url));
 
@@ -40,15 +47,16 @@ function applyMigrations(): void {
   }
 }
 
+beforeAll(applyMigrations);
+
+beforeEach(() => {
+  db.delete(reminderLog).run();
+  db.delete(reminders).run();
+  db.delete(habits).run();
+  db.delete(settings).run();
+});
+
 describe("reminder log queries", () => {
-  beforeAll(applyMigrations);
-
-  beforeEach(() => {
-    db.delete(reminderLog).run();
-    db.delete(reminders).run();
-    db.delete(habits).run();
-  });
-
   it("claims a reminder tap only once", async () => {
     const habit = await createHabit({
       name: "Pills",
@@ -142,6 +150,115 @@ describe("reminder log queries", () => {
     await expect(toggleCheckin(habit.id, "2026-11-13")).resolves.toBe("checked");
     await expect(toggleCheckin(habit.id, "2026-11-13")).resolves.toBe("unchecked");
     await expect(toggleCheckin(habit.id, "2026-11-13")).resolves.toBe("checked");
+  });
+});
+
+describe("freeze consumption queries", () => {
+  /** Local ISO key for a day offset from today. */
+  function dayKey(offset: number): string {
+    return format(addDays(startOfDay(new Date()), offset), "yyyy-MM-dd");
+  }
+
+  async function seedHabit(freezeBank: number): Promise<number> {
+    const habit = await createHabit({
+      name: "Stretch",
+      description: null,
+      type: "binary",
+      color: "#3b82f6",
+      icon: null,
+      schedule: { mode: "daily" } as never,
+      targetValue: null,
+      unit: null,
+      freezeBank,
+    });
+    return habit.id;
+  }
+
+  it("clamps freeze consumption at zero", async () => {
+    const habitId = await seedHabit(2);
+
+    await expect(applyFreezeConsumption(habitId, 2, 1)).resolves.toBe(1);
+    await expect(applyFreezeConsumption(habitId, 1, 5)).resolves.toBe(0);
+    await expect(applyFreezeConsumption(habitId, 0, 1)).resolves.toBe(0);
+  });
+
+  it("spends a missed day's freeze once and stays idempotent", async () => {
+    const habitId = await seedHabit(2);
+    await toggleCheckin(habitId, dayKey(0));
+    await toggleCheckin(habitId, dayKey(-2)); // day -1 is missed
+
+    await expect(syncHabitFreezes(habitId)).resolves.toBe(1);
+    await expect(syncHabitFreezes(habitId)).resolves.toBe(0);
+
+    const [row] = await db
+      .select({ freezeBank: habits.freezeBank })
+      .from(habits)
+      .where(eq(habits.id, habitId));
+    expect(row?.freezeBank).toBe(1);
+
+    const history = (await getFreezeHistories()).get(habitId);
+    expect(history?.paid?.has(dayKey(-1))).toBe(true);
+  });
+
+  it("blocks a gap once the bank is empty and does not revive it later", async () => {
+    const habitId = await seedHabit(1);
+    await toggleCheckin(habitId, dayKey(0));
+    await toggleCheckin(habitId, dayKey(-2));
+    await toggleCheckin(habitId, dayKey(-4)); // gaps at -1 and -3
+
+    await expect(syncHabitFreezes(habitId)).resolves.toBe(1);
+
+    const history = (await getFreezeHistories()).get(habitId);
+    expect(history?.paid?.has(dayKey(-1))).toBe(true);
+    expect(history?.blocked?.has(dayKey(-3))).toBe(true);
+
+    // A later refill must not retroactively cover the already-lost gap.
+    await db
+      .update(habits)
+      .set({ freezeBank: 2 })
+      .where(eq(habits.id, habitId))
+      .run();
+    await expect(syncHabitFreezes(habitId)).resolves.toBe(0);
+
+    const habit = await getHabitById(habitId);
+    expect(habit?.freezeBank).toBe(2);
+  });
+
+  it("keeps the bank when a leading gap run cannot reach the old streak", async () => {
+    const habitId = await seedHabit(2);
+    // Today unchecked; the last three days are missed and only two freezes
+    // exist, so the run behind them cannot be reached.
+    await toggleCheckin(habitId, dayKey(-4));
+
+    await expect(syncHabitFreezes(habitId)).resolves.toBe(0);
+
+    const habit = await getHabitById(habitId);
+    expect(habit?.freezeBank).toBe(2);
+
+    const history = (await getFreezeHistories()).get(habitId);
+    expect(history?.paid).toEqual(new Set());
+    expect(history?.blocked?.has(dayKey(-3))).toBe(true);
+  });
+
+  it("does not refill a spent bank from already-accrued months", async () => {
+    const habitId = await seedHabit(0);
+    await db
+      .update(habits)
+      .set({ createdAt: addDays(startOfDay(new Date()), -100) })
+      .where(eq(habits.id, habitId))
+      .run();
+
+    const first = (await listHabits()).find((habit) => habit.id === habitId);
+    expect(first?.freezeBank).toBe(2); // every elapsed boundary is granted once
+
+    await db
+      .update(habits)
+      .set({ freezeBank: 0 })
+      .where(eq(habits.id, habitId))
+      .run();
+
+    const second = (await listHabits()).find((habit) => habit.id === habitId);
+    expect(second?.freezeBank).toBe(0); // the marker advanced, so nothing regrants
   });
 });
 
