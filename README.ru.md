@@ -7,8 +7,26 @@ Telegram-ботом. Всё работает на вашем компьютер�
 никаких аккаунтов и облака.
 
 [![Build passing](https://github.com/h4rr0u/habit-tracker/actions/workflows/ci.yml/badge.svg?label=build)](https://github.com/h4rr0u/habit-tracker/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/h4rr0u/habit-tracker/releases/tag/v1.0.0)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522.9-blue)
+
+**Текущая версия: v1.0.0** — первый публичный релиз.
+
+## Скриншоты
+
+Сняты на демонстрационных данных (`npm run db:seed:demo`), поэтому совпадают с
+тем, что вы увидите в приложении.
+
+| Главная                                       | Аналитика                                     |
+| --------------------------------------------- | --------------------------------------------- |
+| ![Главная](docs/screenshots/dashboard.png)    | ![Аналитика](docs/screenshots/analytics.png)  |
+
+| Привычки                                  | Карточка привычки                                |
+| ----------------------------------------- | ------------------------------------------------ |
+| ![Привычки](docs/screenshots/habits.png)  | ![Привычка](docs/screenshots/habit-detail.png)   |
+
+![Настройки](docs/screenshots/settings.png)
 
 ## Возможности
 
@@ -20,18 +38,6 @@ Telegram-ботом. Всё работает на вашем компьютер�
 - **Настройки внешнего вида** — акцентные цвета, компактный/удобный режим, тёмная тема по умолчанию.
 - **JSON-резервные копии** — экспорт и импорт всех данных в один клик.
 - **Интерфейс на русском и английском** — язык переключается в настройках в любой момент.
-
-## Скриншоты
-
-Сняты на демонстрационных данных (`npm run db:seed:demo`).
-
-| Главная                                       | Привычки                                  |
-| --------------------------------------------- | ----------------------------------------- |
-| ![Главная](docs/screenshots/dashboard.png)    | ![Привычки](docs/screenshots/habits.png)  |
-
-| Карточка привычки                                | Аналитика                                     |
-| ------------------------------------------------ | --------------------------------------------- |
-| ![Привычка](docs/screenshots/habit-detail.png)   | ![Аналитика](docs/screenshots/analytics.png)  |
 
 ## Технологии
 

@@ -2,12 +2,14 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 import Database from "better-sqlite3";
-import { addDays, format, startOfDay, startOfWeek } from "date-fns";
+import { addDays, format, startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 
 import * as schema from "../src/db/schema";
-import type { HabitType } from "../src/db/schema";
+import type { Checkin, Habit, HabitType } from "../src/db/schema";
+import { buildCompletionCheckins } from "../src/lib/habit-target";
+import { calculateFreezeConsumption } from "../src/lib/streaks";
 import { isHabitDueOn, type Schedule } from "../src/types/schedule";
 
 /**
@@ -96,6 +98,12 @@ interface HabitSeed {
   partialRate?: number;
   /** Guaranteed run of completed scheduled days ending today. */
   tailDays: number;
+  /**
+   * A single missed scheduled day inside the guaranteed run (1 = yesterday).
+   * The streak engine covers it with a freeze, so the demo shows what a
+   * "spent freeze" looks like on the charts.
+   */
+  tailGapDaysAgo?: number;
   /** Completed run somewhere in the past, for the "longest streak" record. */
   historicStreak?: { endDaysAgo: number; length: number };
   /** Force today's state so the dashboard shows a nice mix. */
@@ -117,6 +125,7 @@ const HABITS: HabitSeed[] = [
     weekdayWeights: [0.8, 1.05, 1.0, 0.95, 1.0, 0.96, 0.86],
     partialRate: 0,
     tailDays: 84,
+    tailGapDaysAgo: 34,
     historicStreak: { endDaysAgo: 150, length: 118 },
     today: { kind: "complete" },
   },
@@ -135,6 +144,7 @@ const HABITS: HabitSeed[] = [
     weekendDelta: 0.05,
     partialRate: 0.6,
     tailDays: 41,
+    tailGapDaysAgo: 12,
     today: { kind: "complete" },
   },
   {
@@ -458,6 +468,14 @@ function generateHistory(seed: HabitSeed): Map<string, Entry> {
     }
   }
 
+  // A single missed scheduled day inside the recent run. The streak engine
+  // covers it with a freeze, so the demo also shows a "used freeze" gap.
+  if (seed.tailGapDaysAgo) {
+    const key = dayKey(addDays(TODAY, -seed.tailGapDaysAgo));
+    if (seed.type === "negative") entries.set(key, { value: null });
+    else entries.delete(key);
+  }
+
   return entries;
 }
 
@@ -482,6 +500,23 @@ function applyToday(seed: HabitSeed, entries: Map<string, Entry>): void {
 
 /* -------------------------------- seeding ------------------------------ */
 
+/**
+ * Monthly freeze points earned after `blockedKey` (the day the streak broke),
+ * capped like the app's bank at 2.
+ */
+function accruedSince(blockedKey: string | null, today: Date): number {
+  if (!blockedKey) return 0;
+  const blocked = startOfDay(new Date(`${blockedKey}T00:00:00`));
+  let point = startOfDay(new Date(blocked.getFullYear(), blocked.getMonth() + 1, 1));
+  let grants = 0;
+  const limit = startOfDay(today);
+  while (point <= limit && grants < 2) {
+    grants++;
+    point = new Date(point.getFullYear(), point.getMonth() + 1, 1);
+  }
+  return grants;
+}
+
 async function main(): Promise<void> {
   console.log(`[seed] writing demo data to ${resolvedPath}`);
 
@@ -496,6 +531,10 @@ async function main(): Promise<void> {
   );
 
   let checkinCount = 0;
+  const freezeState: Record<
+    string,
+    { accruedThrough: string; paid: string[]; blocked: string[] }
+  > = {};
 
   for (const seed of HABITS) {
     const createdAt = addDays(TODAY, -seed.createdDaysAgo);
@@ -527,6 +566,39 @@ async function main(): Promise<void> {
       await db.insert(schema.checkins).values(rows.slice(i, i + 400));
     }
     checkinCount += rows.length;
+
+    // Persist the freeze bookkeeping the same way the app's first sync would.
+    // Without this, opening the demo spends every seeded freeze to cover old
+    // gaps and the UI shows "0 freezes" everywhere.
+    const seededCheckins = rows.map((row) => ({
+      id: 0,
+      habitId: habit.id,
+      date: row.date,
+      value: row.value,
+      note: null,
+      createdAt: createdAt,
+    })) as Checkin[];
+    const completion = buildCompletionCheckins(habit, seededCheckins, TODAY);
+    const plan = calculateFreezeConsumption(
+      completion,
+      seed.schedule,
+      seed.freezeBank,
+      TODAY,
+      habit.createdAt
+    );
+    // The walk stops spending at the first gap it cannot cover, so the bank is
+    // empty on that day. Real users then keep accruing one freeze per month,
+    // which is why the persisted balance is the accrual since that block.
+    const balance = plan.freezesRemaining + accruedSince(plan.blockedUnit, TODAY);
+    sqlite.prepare("UPDATE habits SET freeze_bank = ? WHERE id = ?").run(
+      balance,
+      habit.id
+    );
+    freezeState[String(habit.id)] = {
+      accruedThrough: format(startOfMonth(TODAY), "yyyy-MM-dd"),
+      paid: plan.paidUnits,
+      blocked: plan.blockedUnit ? [plan.blockedUnit] : [],
+    };
 
     if (seed.name === "Pills") {
       for (const time of ["08:00", "13:00", "20:00"]) {
@@ -575,8 +647,22 @@ async function main(): Promise<void> {
   }
 
   const reminderCount = db.select().from(schema.reminders).all().length;
+
+  // Replace any stale bookkeeping so a re-seed always starts from the same
+  // state the generator just computed.
+  await db
+    .insert(schema.settings)
+    .values({ key: "freezeState", value: freezeState })
+    .onConflictDoUpdate({
+      target: schema.settings.key,
+      set: { value: freezeState },
+    });
+
+  const frozenCount = Object.values(freezeState).filter(
+    (entry) => entry.paid.length > 0
+  ).length;
   console.log(
-    `[seed] done — ${HABITS.length} habits, ${checkinCount} check-ins, ${reminderCount} reminders.`
+    `[seed] done — ${HABITS.length} habits, ${checkinCount} check-ins, ${reminderCount} reminders, ${frozenCount} habits with spent freezes.`
   );
   console.log("[seed] run the app against it with:");
   console.log(`       DATABASE_URL=${targetUrl} npm run dev`);

@@ -203,6 +203,7 @@ export function HabitCheckinControl({
         today={today}
         todayCheckin={todayCheckin}
         disabled={disabled}
+        variant={variant}
         onChanged={onChanged}
       />
     );

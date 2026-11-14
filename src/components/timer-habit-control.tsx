@@ -40,6 +40,11 @@ interface TimerHabitControlProps {
   today: string;
   todayCheckin: Checkin | null;
   disabled?: boolean;
+  /**
+   * `dashboard` sits in a single flex row next to the habit name, so it must
+   * not claim the whole width; `card` is stacked and stretches instead.
+   */
+  variant?: "dashboard" | "card";
   onChanged?: (checkin: Checkin | null) => void;
 }
 
@@ -59,6 +64,7 @@ export function TimerHabitControl({
   today,
   todayCheckin,
   disabled = false,
+  variant = "card",
   onChanged,
 }: TimerHabitControlProps) {
   const { t } = useLanguage();
@@ -264,7 +270,13 @@ export function TimerHabitControl({
   const atTarget = target != null && elapsed >= target;
 
   return (
-    <div className="flex w-full items-center gap-2">
+    <div
+      className={
+        variant === "dashboard"
+          ? "flex shrink-0 items-center gap-2"
+          : "flex w-full items-center gap-2"
+      }
+    >
       <span className="flex items-center gap-1.5 font-mono text-sm tabular-nums">
         <Timer className="size-4 text-muted-foreground" />
         {formatDuration(elapsed)}

@@ -6,8 +6,26 @@ A local-first habit tracker with flexible schedules, soft streaks and an optiona
 Telegram bot. Everything runs on your machine: SQLite storage, no accounts, no cloud.
 
 [![Build passing](https://github.com/h4rr0u/habit-tracker/actions/workflows/ci.yml/badge.svg?label=build)](https://github.com/h4rr0u/habit-tracker/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/h4rr0u/habit-tracker/releases/tag/v1.0.0)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522.9-blue)
+
+**Current version: v1.0.0** — the first public release.
+
+## Screenshots
+
+Taken from the bundled demo dataset (`npm run db:seed:demo`), so they match what
+the app actually shows.
+
+| Dashboard                                          | Analytics                                    |
+| -------------------------------------------------- | -------------------------------------------- |
+| ![Dashboard](docs/screenshots/dashboard.png)       | ![Analytics](docs/screenshots/analytics.png) |
+
+| Habits                                    | Habit detail                                       |
+| ----------------------------------------- | -------------------------------------------------- |
+| ![Habits](docs/screenshots/habits.png)    | ![Habit detail](docs/screenshots/habit-detail.png) |
+
+![Settings](docs/screenshots/settings.png)
 
 ## Features
 
@@ -19,18 +37,6 @@ Telegram bot. Everything runs on your machine: SQLite storage, no accounts, no c
 - **Appearance settings** — accent colors, compact/comfortable density, dark theme by default.
 - **JSON backups** — one-click export/import of all data for backups and migration.
 - **English and Russian UI** — switch the language in Settings at any time.
-
-## Screenshots
-
-Captured from the bundled demo dataset (`npm run db:seed:demo`).
-
-| Dashboard                                          | Habits                                   |
-| -------------------------------------------------- | ---------------------------------------- |
-| ![Dashboard](docs/screenshots/dashboard.png)       | ![Habits](docs/screenshots/habits.png)   |
-
-| Habit detail                                          | Analytics                                    |
-| ----------------------------------------------------- | -------------------------------------------- |
-| ![Habit detail](docs/screenshots/habit-detail.png)    | ![Analytics](docs/screenshots/analytics.png) |
 
 ## Tech stack
 
