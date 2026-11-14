@@ -48,6 +48,7 @@ next-env.d.ts
 # local database (keep .gitkeep so the folder exists after a fresh clone)
 /data/*
 !/data/.gitkeep
+/backup/
 *.db
 *.db-shm
 *.db-wal

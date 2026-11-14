@@ -167,6 +167,46 @@ settings) to a single JSON file and import it back later. Import **replaces** th
 current database contents, so keep the exported file safe. This is also the way
 to move your data between machines.
 
+## 🔄 Updating
+
+Before updating, stop the tracker: press `Ctrl+C` in the black console window
+(or close it). The updater refuses to run while port 3000 is busy, so the
+database is never changed behind a running server.
+
+Then double-click **`update.bat`**. It always saves a copy of the SQLite
+database to `backup\` first (`habit-tracker-YYYY-MM-DD.db`), so your habits and
+check-ins are protected even if an update goes wrong.
+
+### Git version (cloned repository)
+
+If the project folder contains `.git`, `update.bat` runs
+`scripts\update.mjs`, which:
+
+1. backs up the database to `backup\`;
+2. runs `git pull` for the current branch (`main` or `master`);
+3. runs `npm install` when `package.json` has changed;
+4. applies new Drizzle migrations with `npm run db:migrate`.
+
+When it finishes, start the tracker again with **`start.bat`**.
+
+If a migration fails, the updater stops, prints the error and **keeps** the
+backup. Restore `data\habit-tracker.db` from `backup\` or contact the
+developer before trying again.
+
+### ZIP version (downloaded as an archive)
+
+A ZIP copy has no `.git` folder, so automatic updates are not available.
+`update.bat` shows the same instructions instead of failing:
+
+1. Download the new ZIP from GitHub.
+2. Extract it into a new folder.
+3. Copy `.env` and your database (`*.db`, usually `data\habit-tracker.db`) from
+   the old folder into the new one.
+4. Run `start.bat` in the new folder.
+
+Keep the old folder until you have checked that the new version works. Release
+notes and archives: <https://github.com/h4rr0u/habit-tracker/releases>.
+
 ## Settings
 
 ### Donation link (optional)
