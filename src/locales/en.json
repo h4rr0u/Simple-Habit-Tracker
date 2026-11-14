@@ -284,5 +284,7 @@
   "errors.invalidDate": "Date must be YYYY-MM-DD",
   "errors.invalidTime": "Time must be HH:mm (24h)",
   "errors.invalidChatId": "Chat id must be a number (send /start to the bot to get it)",
+  "errors.chatUnreachable": "The bot cannot write to this chat",
+  "errors.botTokenMissing": "TELEGRAM_BOT_TOKEN is not set in .env",
   "errors.pickDay": "Pick at least one day"
 }

@@ -42,6 +42,47 @@ function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unexpected error";
 }
 
+/** Test message that verifies the bot is allowed to write to the chat. */
+const CHAT_BINDING_TEST_MESSAGE =
+  "Привязка успешна! Теперь я буду присылать сюда напоминания.";
+
+/** Shown when Telegram rejects the chat or the user blocked the bot. */
+const CHAT_UNREACHABLE_ERROR = "Бот не может написать в этот чат";
+
+/** Shown when the bot token is missing, so no test message can be sent. */
+const BOT_TOKEN_MISSING_ERROR = "TELEGRAM_BOT_TOKEN не задан в .env";
+
+/**
+ * Sends a test message through the Telegram Bot API. Only after this succeeds
+ * is the chat id persisted, so a typo or a blocked bot never binds silently.
+ */
+async function sendChatBindingTest(chatId: number): Promise<void> {
+  const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  if (!token) throw new Error(BOT_TOKEN_MISSING_ERROR);
+
+  const response = await fetch(
+    `https://api.telegram.org/bot${token}/sendMessage`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: CHAT_BINDING_TEST_MESSAGE,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    }
+  ).catch(() => null);
+
+  if (!response) throw new Error(CHAT_UNREACHABLE_ERROR);
+
+  const payload = (await response.json().catch(() => null)) as {
+    ok?: boolean;
+  } | null;
+  if (!response.ok || payload?.ok !== true) {
+    throw new Error(CHAT_UNREACHABLE_ERROR);
+  }
+}
+
 /* ------------------------------ schemas ------------------------------- */
 
 const timeSchema = z
@@ -86,6 +127,8 @@ export async function saveChatIdAction(
 
   try {
     const chatId = Number(parsed.data.chatId);
+    // Verify delivery first: a wrong id or a blocked bot must not be saved.
+    await sendChatBindingTest(chatId);
     await setTelegramChatId(chatId);
     revalidatePath("/settings");
     return { ok: true, data: chatId };

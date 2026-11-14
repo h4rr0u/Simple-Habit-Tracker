@@ -22,6 +22,8 @@ export type ActionErrorKind =
   | "invalidDate"
   | "invalidTime"
   | "invalidChatId"
+  | "chatUnreachable"
+  | "botTokenMissing"
   | "pickDay"
   | "generic";
 
@@ -41,6 +43,8 @@ export function actionErrorKind(message: string): ActionErrorKind {
   if (value.startsWith("Date must be YYYY-MM-DD")) return "invalidDate";
   if (value.startsWith("Time must be HH:mm")) return "invalidTime";
   if (value.startsWith("Chat id must be a number")) return "invalidChatId";
+  if (value === "Бот не может написать в этот чат") return "chatUnreachable";
+  if (value === "TELEGRAM_BOT_TOKEN не задан в .env") return "botTokenMissing";
   if (value === "Pick at least one day") return "pickDay";
   return "generic";
 }
@@ -59,6 +63,8 @@ const ERROR_KEYS: Record<ActionErrorKind, TranslationKey> = {
   invalidDate: "errors.invalidDate",
   invalidTime: "errors.invalidTime",
   invalidChatId: "errors.invalidChatId",
+  chatUnreachable: "errors.chatUnreachable",
+  botTokenMissing: "errors.botTokenMissing",
   pickDay: "errors.pickDay",
   generic: "errors.generic",
 };

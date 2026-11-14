@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 /**
- * Единый dev-лаунчер Habit Tracker.
+ * Единый лаунчер Habit Tracker (production).
  *
  * Поднимает весь стек в одном терминале:
- *   [web]  — Next.js dev server (http://localhost:3000), запускается всегда;
+ *   [web]  — Next.js production server (http://localhost:3000), запускается всегда;
  *   [bot]  — Telegram-бот (grammY), только если задан TELEGRAM_BOT_TOKEN;
  *   [cron] — cron напоминаний (node-cron), только если задан TELEGRAM_BOT_TOKEN.
+ *
+ * Перед запуском проверяется папка .next: если сборки нет, лаунчер выполняет
+ * `npm run build` и только потом запускает `next start`. Флаг --build (или
+ * --rebuild) принудительно пересобирает проект даже при наличии .next.
  *
  * Вывод каждого процесса помечен цветным префиксом [web]/[bot]/[cron].
  * Ctrl+C (SIGINT) или SIGTERM останавливает все запущенные процессы.
@@ -61,6 +65,7 @@ const paint = (code, text) => (useColor ? `\u001B[${code}m${text}\u001B[0m` : te
 // cyan / green / magenta
 const TAG_COLORS = { web: "36", bot: "32", cron: "35" };
 const YELLOW = "33";
+const GREEN = "32";
 const RED = "31";
 const DIM = "2";
 const BOLD = "1";
@@ -97,9 +102,9 @@ const TELEGRAM_TOKEN = (process.env.TELEGRAM_BOT_TOKEN ?? "").trim();
 const services = [
   {
     name: "web",
-    script: "dev",
+    script: "start",
     args: ["--", "--port", "3000"],
-    label: "Next.js dev server — http://localhost:3000",
+    label: "Next.js production server — http://localhost:3000",
   },
 ];
 if (TELEGRAM_TOKEN !== "") {
@@ -114,6 +119,47 @@ let shuttingDown = false;
 // npm.cmd нельзя запустить без shell (ограничение Node для .cmd/.bat),
 // на POSIX shell не нужен — там используется отдельная процесс-группа.
 const NPM = IS_WINDOWS ? "npm.cmd" : "npm";
+
+/** Папка production-сборки Next.js. */
+const BUILD_DIR = join(ROOT, ".next");
+
+/** Принудительная пересборка: `npm run start:all -- --build`. */
+const FORCE_BUILD = process.argv.includes("--build") || process.argv.includes("--rebuild");
+
+/**
+ * Собирает production-версию синхронно, чтобы `next start` не стартовал
+ * с недособранным .next. Возвращает true при успешной сборке.
+ */
+function buildApp() {
+  const args = ["run", "build"];
+  console.log(paint(BOLD, "\n  Собираю production-версию (npm run build)…"));
+  console.log(paint(DIM, "  Это может занять несколько минут.\n"));
+
+  const result = IS_WINDOWS
+    ? spawnSync([NPM, ...args].join(" "), {
+        cwd: ROOT,
+        env: process.env,
+        stdio: "inherit",
+        shell: true,
+      })
+    : spawnSync(NPM, args, {
+        cwd: ROOT,
+        env: process.env,
+        stdio: "inherit",
+      });
+
+  if (result.error) {
+    console.error(paint(RED, `\nНе удалось запустить сборку: ${result.error.message}`));
+    return false;
+  }
+  if (result.status !== 0) {
+    console.error(paint(RED, `\nСборка завершилась с ошибкой (код ${result.status ?? "?"}).`));
+    return false;
+  }
+
+  console.log(paint(GREEN, "\n  Сборка готова.\n"));
+  return true;
+}
 
 function startService({ name, script, args }) {
   // На Windows Node не запускает .cmd без shell, а shell:true вместе с массивом
@@ -241,7 +287,7 @@ process.on("uncaughtException", (error) => {
 function printBanner() {
   const rule = "─".repeat(60);
   console.log();
-  console.log(paint(BOLD, "  🐾 Habit Tracker — единый запуск dev-стека"));
+  console.log(paint(BOLD, "  🐾 Habit Tracker — единый запуск production-стека"));
   console.log(paint(DIM, `  ${rule}`));
   console.log(`  Web:  ${paint(BOLD, "http://localhost:3000")}`);
   console.log("  Процессы:");
@@ -256,6 +302,16 @@ function printBanner() {
 /* --------------------------------- main ----------------------------------- */
 
 printBanner();
+
+if (FORCE_BUILD || !existsSync(BUILD_DIR)) {
+  if (!buildApp()) {
+    console.error(paint(RED, "Запуск отменён: production-сборка не удалась."));
+    process.exit(1);
+  }
+} else {
+  console.log(paint(DIM, "  Найдена готовая сборка (.next) — пересборка не требуется."));
+  console.log(paint(DIM, "  Пересобрать принудительно: npm run start:all -- --build\n"));
+}
 
 for (const service of services) startService(service);
 

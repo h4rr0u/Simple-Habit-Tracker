@@ -1,7 +1,8 @@
 @echo off
 rem Habit Tracker — launch the whole stack (web + optional Telegram bot).
-rem Double-click this file: it installs dependencies and creates the database
-rem on the first run, then starts the web app at http://localhost:3000
+rem Double-click this file: it installs dependencies on the first run,
+rem applies database migrations, builds the app when needed and starts
+rem the production server at http://localhost:3000
 chcp 65001 >nul
 title Habit Tracker
 cd /d "%~dp0"
@@ -28,13 +29,13 @@ if not exist "node_modules" (
 )
 
 rem --- 3. Database ----------------------------------------------------------
-if not exist "data\habit-tracker.db" (
-  echo.
-  echo Создаю базу данных...
-  echo.
-  call npm run db:migrate
-  if errorlevel 1 goto failed
-)
+rem Migrations are safe to run every time: drizzle-kit skips already applied
+rem ones, so this always brings the schema to the latest version.
+echo.
+echo Проверяю и обновляю базу данных...
+echo.
+call npm run db:migrate
+if errorlevel 1 goto failed
 
 rem --- 4. Start the app -----------------------------------------------------
 call npm run start:all

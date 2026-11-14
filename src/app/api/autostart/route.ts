@@ -47,10 +47,11 @@ function createAutoLaunch(): AutoLaunch {
   return autoLaunch;
 }
 
-/** Extracts a message from an unknown thrown value. */
-function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unexpected error";
-}
+/** Public message for failures; the raw error may contain absolute paths. */
+const AUTOSTART_READ_FAILED = "Не удалось получить настройки автозапуска";
+
+/** Public message for failures; the raw error may contain absolute paths. */
+const AUTOSTART_UPDATE_FAILED = "Не удалось изменить настройки автозапуска";
 
 const autostartSchema = z.object({
   enabled: z.boolean(),
@@ -66,8 +67,9 @@ export async function GET() {
     const enabled = await createAutoLaunch().isEnabled();
     return NextResponse.json({ enabled, supported: true });
   } catch (error) {
+    console.error("[autostart] failed to read state:", error);
     return NextResponse.json(
-      { error: toErrorMessage(error) },
+      { error: AUTOSTART_READ_FAILED },
       { status: 500 },
     );
   }
@@ -100,8 +102,9 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ ok: true });
   } catch (error) {
+    console.error("[autostart] failed to update state:", error);
     return NextResponse.json(
-      { ok: false, error: toErrorMessage(error) },
+      { ok: false, error: AUTOSTART_UPDATE_FAILED },
       { status: 500 },
     );
   }

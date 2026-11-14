@@ -359,6 +359,7 @@ async function runGitScenario() {
 
   section(`Обновление из Git (${remote}/${branch})`);
   const packageBefore = readText(join(ROOT, "package.json"));
+  const headBefore = (git(["rev-parse", "HEAD"]).stdout ?? "").trim();
 
   const pull = git(["pull", remote, branch], { inherit: true });
   if (pull.status !== 0) {
@@ -373,7 +374,8 @@ async function runGitScenario() {
   }
 
   const packageAfter = readText(join(ROOT, "package.json"));
-  if (packageBefore !== packageAfter) {
+  const dependenciesChanged = packageBefore !== packageAfter;
+  if (dependenciesChanged) {
     section("Зависимости");
     console.log("package.json изменился — устанавливаю новые зависимости…");
     const install = runNpm(["install"]);
@@ -405,6 +407,31 @@ async function runGitScenario() {
       for (const backup of backups) console.log(paint(DIM, `  • ${backup}`));
     }
     return 1;
+  }
+
+  const headAfter = (git(["rev-parse", "HEAD"]).stdout ?? "").trim();
+  const repoChanged =
+    headBefore !== "" && headAfter !== "" && headBefore !== headAfter;
+  const needsBuild =
+    repoChanged || dependenciesChanged || !existsSync(join(ROOT, ".next"));
+
+  if (needsBuild) {
+    section("Сборка production-версии");
+    console.log(
+      repoChanged || dependenciesChanged
+        ? "Исходники изменились — собираю приложение (npm run build)…"
+        : "Готовая сборка не найдена — собираю приложение (npm run build)…",
+    );
+    const build = runNpm(["run", "build"]);
+    if (build.status !== 0) {
+      console.log();
+      console.log(paint(`${RED};${BOLD}`, "Ошибка сборки. Обновление остановлено."));
+      console.log("База данных уже обновлена и сохранена в backup/.");
+      console.log("Исправьте ошибку выше и запустите start.bat или update.bat снова.");
+      return 1;
+    }
+  } else {
+    console.log(paint(DIM, "Исходники не изменились — пересборка не требуется."));
   }
 
   console.log();

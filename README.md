@@ -101,9 +101,11 @@ can read or copy it before closing.
 
 1. Checks that Node.js is installed and tells you where to download it if not.
 2. Runs `npm install` if the `node_modules` folder is missing.
-3. Runs `npm run db:migrate` if `data\habit-tracker.db` does not exist yet.
-4. Runs `npm run start:all` — the web app, plus the bot and reminders when a
-   Telegram token is configured.
+3. Runs `npm run db:migrate` — safe on every launch, so the database schema is
+   always up to date.
+4. Runs `npm run start:all` — the production web app (builds it first when
+   `.next` is missing), plus the bot and reminders when a Telegram token is
+   configured.
 5. Keeps the window open (`pause`) on failure so you can read the error.
 
 ### Troubleshooting
@@ -241,7 +243,9 @@ npm run dev          # http://localhost:3000 (web only)
 npm run start:all
 ```
 
-The launcher reads `.env` and decides what to start:
+The launcher reads `.env` and decides what to start. The web app runs as a
+production build (`next start`); if `.next` is missing, `npm run build` runs
+automatically first. Force a rebuild with `npm run start:all -- --build`.
 
 - **Without Telegram** — leave `TELEGRAM_BOT_TOKEN` empty (or don't create a
   `.env` at all). The launcher prints a warning and runs only the web app.
@@ -291,7 +295,7 @@ Streaks are **soft**:
 | Command                 | What it does                                                          |
 | ----------------------- | --------------------------------------------------------------------- |
 | `npm run dev`           | Web app (Next.js dev server)                                          |
-| `npm run start:all`     | Everything at once: web + bot + reminders (Ctrl+C stops all)          |
+| `npm run start:all`     | Everything at once: production web build + bot + reminders (Ctrl+C stops all) |
 | `npm run build`         | Production build                                                      |
 | `npm run start`         | Serve the production build                                            |
 | `npm run test`          | Run unit tests (Vitest)                                               |

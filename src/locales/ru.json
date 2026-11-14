@@ -284,5 +284,7 @@
   "errors.invalidDate": "Дата должна быть в формате ГГГГ-ММ-ДД",
   "errors.invalidTime": "Время должно быть в формате ЧЧ:мм (24 часа)",
   "errors.invalidChatId": "ID чата должен быть числом (отправьте /start боту, чтобы получить его)",
+  "errors.chatUnreachable": "Бот не может написать в этот чат",
+  "errors.botTokenMissing": "Не задан TELEGRAM_BOT_TOKEN в файле .env",
   "errors.pickDay": "Выберите хотя бы один день"
 }
