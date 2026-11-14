@@ -148,10 +148,12 @@ describe("callback data codecs", () => {
     expect(buildCallbackData({ kind: "menu_today" })).toBe("menu_today");
     expect(buildCallbackData({ kind: "menu_stats" })).toBe("menu_stats");
     expect(buildCallbackData({ kind: "menu_web" })).toBe("menu_web");
+    expect(buildCallbackData({ kind: "menu_language" })).toBe("menu_language");
     expect(buildCallbackData({ kind: "menu_main" })).toBe("menu_main");
     expect(parseCallbackData("menu_today")).toEqual({ kind: "menu_today" });
     expect(parseCallbackData("menu_stats")).toEqual({ kind: "menu_stats" });
     expect(parseCallbackData("menu_web")).toEqual({ kind: "menu_web" });
+    expect(parseCallbackData("menu_language")).toEqual({ kind: "menu_language" });
     expect(parseCallbackData("menu_main")).toEqual({ kind: "menu_main" });
   });
 
@@ -200,7 +202,7 @@ describe("buildMainMenuMessage", () => {
     expect(message.text).toContain("нажимай на кнопки");
 
     const rows = message.keyboard?.inline_keyboard ?? [];
-    expect(rows).toHaveLength(2); // no donation row when the link is unset
+    expect(rows).toHaveLength(3); // no donation row when the link is unset
 
     expect(buttonAt(message, 0)).toEqual({
       text: "📅 Привычки на сегодня",
@@ -209,6 +211,10 @@ describe("buildMainMenuMessage", () => {
     expect(buttonAt(message, 1, 0)).toEqual({
       text: "📊 Моя статистика",
       callback_data: "menu_stats",
+    });
+    expect(buttonAt(message, 2, 0)).toEqual({
+      text: "🌐 Сменить язык / Change language",
+      callback_data: "menu_language",
     });
   });
 
@@ -231,8 +237,8 @@ describe("buildMainMenuMessage", () => {
   it("adds the donation row when a link is configured", () => {
     const message = buildMainMenuMessage({ donationUrl: "  https://example.com/donate  " });
     const rows = message.keyboard?.inline_keyboard ?? [];
-    expect(rows).toHaveLength(3);
-    expect(urlButtonAt(message, 2, 0)).toEqual({
+    expect(rows).toHaveLength(4);
+    expect(urlButtonAt(message, 3, 0)).toEqual({
       text: "💖 Поддержать автора",
       url: "https://example.com/donate",
     });
@@ -241,7 +247,7 @@ describe("buildMainMenuMessage", () => {
   it("hides the donation row for blank or unusable links", () => {
     for (const value of [null, undefined, "", "   ", "not a url", "javascript:alert(1)"]) {
       const rows = buildMainMenuMessage({ donationUrl: value }).keyboard?.inline_keyboard ?? [];
-      expect(rows).toHaveLength(2);
+      expect(rows).toHaveLength(3);
     }
   });
 });
@@ -643,6 +649,7 @@ describe("language selection", () => {
     const menu = buildMainMenuMessage({ language: "en" });
     expect(menu.text).toContain("Hi! I'm your habit tracker");
     expect(buttonAt(menu, 0).text).toBe("📅 Today's habits");
+    expect(buttonAt(menu, 2, 0).text).toBe("🌐 Change language / Сменить язык");
 
     const today = buildTodayMessage([], {
       today: "2026-11-12",

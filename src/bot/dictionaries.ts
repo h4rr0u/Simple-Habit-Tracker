@@ -29,6 +29,8 @@ export interface BotDictionary {
   menuTodayButton: string;
   menuStatsButton: string;
   menuWebButton: string;
+  /** Opens the ru/en picker from the main menu. */
+  menuLanguageButton: string;
   menuSupportButton: string;
   backToMainButton: string;
 
@@ -126,6 +128,7 @@ const ru: BotDictionary = {
   menuTodayButton: "📅 Привычки на сегодня",
   menuStatsButton: "📊 Моя статистика",
   menuWebButton: "⚙️ Открыть веб-версию",
+  menuLanguageButton: "🌐 Сменить язык / Change language",
   menuSupportButton: "💖 Поддержать автора",
   backToMainButton: "⬅️ В главное меню",
 
@@ -229,6 +232,7 @@ const en: BotDictionary = {
   menuTodayButton: "📅 Today's habits",
   menuStatsButton: "📊 My stats",
   menuWebButton: "⚙️ Open web version",
+  menuLanguageButton: "🌐 Change language / Сменить язык",
   menuSupportButton: "💖 Support the author",
   backToMainButton: "⬅️ Back to main menu",
 

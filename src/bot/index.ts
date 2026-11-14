@@ -46,8 +46,8 @@ import { getTodayViews, todayKey } from "./today";
  * - /support  — donation link (or a polite "disabled" note when unset).
  * - /language — interface language picker (ru/en), stored in the database.
  *
- * Menu navigation (callbacks `menu_today` / `menu_stats` / `menu_main`)
- * edits the message the button belongs to instead of sending a new one.
+ * Menu navigation (callbacks `menu_today` / `menu_stats` / `menu_language` /
+ * `menu_main`) edits the message the button belongs to instead of sending a new one.
  *
  * Inline actions:
  * - ✅/↩️ toggle check-ins for binary/negative habits;
@@ -357,6 +357,13 @@ bot.on("callback_query:data", async (ctx) => {
   if (callback.kind === "menu_web") {
     await ctx.answerCallbackQuery();
     await showMenuView(ctx, buildWebAppMessage(webAppUrl(), language));
+    return;
+  }
+
+  if (callback.kind === "menu_language") {
+    await ctx.answerCallbackQuery();
+    // Same message is replaced by the ru/en picker (which has a back button).
+    await showMenuView(ctx, buildLanguageMessage(language));
     return;
   }
 

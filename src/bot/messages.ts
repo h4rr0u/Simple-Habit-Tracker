@@ -43,10 +43,11 @@ export type BotCallback =
     }
   /** Inert callback for buttons that should look disabled (e.g. goal reached). */
   | { kind: "noop" }
-  /** Main-menu navigation: today's digest, stats, web hint, or greeting. */
+  /** Main-menu navigation: today's digest, stats, web hint, language, or greeting. */
   | { kind: "menu_today" }
   | { kind: "menu_stats" }
   | { kind: "menu_web" }
+  | { kind: "menu_language" }
   | { kind: "menu_main" }
   /** Language picker: persists the chosen interface language. */
   | { kind: "language"; language: BotLanguage };
@@ -59,6 +60,7 @@ const NOOP = "noop";
 const MENU_TODAY = "menu_today";
 const MENU_STATS = "menu_stats";
 const MENU_WEB = "menu_web";
+const MENU_LANGUAGE = "menu_language";
 const MENU_MAIN = "menu_main";
 
 /** Serializes a callback into Telegram callback_data (≤ 64 bytes). */
@@ -90,6 +92,8 @@ export function buildCallbackData(callback: BotCallback): string {
       return MENU_STATS;
     case "menu_web":
       return MENU_WEB;
+    case "menu_language":
+      return MENU_LANGUAGE;
     case "menu_main":
       return MENU_MAIN;
     case "language":
@@ -106,6 +110,7 @@ export function parseCallbackData(data: string): BotCallback | null {
   if (data === MENU_TODAY) return { kind: "menu_today" };
   if (data === MENU_STATS) return { kind: "menu_stats" };
   if (data === MENU_WEB) return { kind: "menu_web" };
+  if (data === MENU_LANGUAGE) return { kind: "menu_language" };
   if (data === MENU_MAIN) return { kind: "menu_main" };
 
   if (data.startsWith(LANGUAGE_PREFIX)) {
@@ -397,8 +402,9 @@ export interface MainMenuOptions {
 }
 
 /**
- * The /start greeting with the inline main menu: today's habits, stats and
- * a shortcut to the web app (plus the donation link when configured).
+ * The /start greeting with the inline main menu: today's habits, stats,
+ * a shortcut to the web app, the language picker (plus the donation link
+ * when configured).
  * Kept free of HTML tags so repeated taps can refresh only the keyboard.
  */
 export function buildMainMenuMessage(options: MainMenuOptions = {}): BotMessage {
@@ -425,6 +431,13 @@ export function buildMainMenuMessage(options: MainMenuOptions = {}): BotMessage 
       buildCallbackData({ kind: "menu_web" })
     );
   }
+
+  keyboard
+    .row()
+    .text(
+      dictionary.menuLanguageButton,
+      buildCallbackData({ kind: "menu_language" })
+    );
 
   const support = telegramSafeUrl(options.donationUrl);
   if (support) keyboard.row().url(dictionary.menuSupportButton, support);
