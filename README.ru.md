@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/bd26d951-1e73-4197-b7f0-65dd2568caa3
+
 [🇬🇧 English](README.md) | [🇷🇺 Русский](README.ru.md)
 
 # Habit Tracker
