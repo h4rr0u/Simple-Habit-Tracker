@@ -240,3 +240,88 @@ html[data-density="compact"] {
     @apply font-sans;
   }
 }
+
+/* --------------------------- print report ---------------------------- */
+/* /analytics/print sets data-print-view on <body> while it is mounted, so the
+   report gets a clean full-width canvas on screen too. The @media print block
+   removes the sidebar, top bar and page padding from the printed document. */
+
+body[data-print-view="true"] [data-slot="sidebar"],
+body[data-print-view="true"] [data-slot="sidebar-inset"] > header {
+  display: none !important;
+}
+
+body[data-print-view="true"] [data-slot="sidebar-inset"] {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+body[data-print-view="true"] [data-slot="sidebar-inset"] > main {
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  [data-slot="sidebar"],
+  [data-slot="sidebar-inset"] > header {
+    display: none !important;
+  }
+
+  [data-slot="sidebar-inset"] {
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  [data-slot="sidebar-inset"] > main {
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+
+  .report-page {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .report-page,
+  .report-page * {
+    color: #111 !important;
+  }
+
+  .report-page .text-muted-foreground {
+    color: #555 !important;
+  }
+
+  .report-table th,
+  .report-table td {
+    border: 1px solid #d4d4d4 !important;
+    padding: 4px 6px !important;
+  }
+
+  .report-table th {
+    background: #f5f5f5 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .report-habit {
+    break-inside: avoid;
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+}

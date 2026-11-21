@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Suspense } from "react";
 
 import { AnalyticsFilters } from "@/components/analytics/analytics-filters";
+import { ExportReportCard } from "@/components/analytics/export-report-card";
 import { formatPercent } from "@/components/analytics/chart-theme";
 import { YearHeatmap } from "@/components/analytics/year-heatmap";
 import { useLanguage, type TranslationKey } from "@/components/language-provider";
@@ -111,6 +112,7 @@ export function AnalyticsView({ period, habitId, habits, data }: AnalyticsViewPr
             </Button>
           </CardContent>
         </Card>
+        <ExportReportCard />
       </div>
     );
   }
@@ -151,6 +153,8 @@ export function AnalyticsView({ period, habitId, habits, data }: AnalyticsViewPr
           formatValue={(stat) => formatPercent(stat.completionRate ?? 0)}
         />
       </div>
+
+      <ExportReportCard />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
