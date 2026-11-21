@@ -183,6 +183,13 @@
   "analytics.export.csv": "Скачать CSV",
   "analytics.export.pdf": "Скачать PDF",
 
+  "analytics.correlations.title": "Анализ корреляций",
+  "analytics.correlations.description": "Связи между привычками за последние 90 дней.",
+  "analytics.correlations.empty": "Недостаточно данных для анализа. Продолжайте отмечать привычки!",
+  "analytics.correlations.noStrong": "Сильных связей пока не найдено. Продолжайте отмечать привычки — закономерности появятся со временем.",
+  "analytics.correlations.positive": "Когда вы выполняете «{habitA}», вероятность выполнения «{habitB}» возрастает на {percent}%.",
+  "analytics.correlations.negative": "Когда вы выполняете «{habitA}», вероятность выполнения «{habitB}» падает на {percent}%.",
+
   "reports.title": "Отчет по привычкам",
   "reports.generatedAt": "Сформирован",
   "reports.range": "Период: {from} — {to}",

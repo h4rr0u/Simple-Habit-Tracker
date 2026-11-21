@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Suspense } from "react";
 
 import { AnalyticsFilters } from "@/components/analytics/analytics-filters";
+import { CorrelationsBlock } from "@/components/analytics/correlations-block";
 import { ExportReportCard } from "@/components/analytics/export-report-card";
 import { formatPercent } from "@/components/analytics/chart-theme";
 import { YearHeatmap } from "@/components/analytics/year-heatmap";
@@ -18,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import type { CorrelationResult } from "@/lib/correlations";
 import type {
   AnalyticsData,
   HabitRecordStat,
@@ -73,9 +75,17 @@ interface AnalyticsViewProps {
   habits: HabitSummary[];
   /** Null → the "nothing to analyse" empty state. */
   data: AnalyticsData | null;
+  /** Habit-pair associations over the last 90 days. */
+  correlations: CorrelationResult;
 }
 
-export function AnalyticsView({ period, habitId, habits, data }: AnalyticsViewProps) {
+export function AnalyticsView({
+  period,
+  habitId,
+  habits,
+  data,
+  correlations,
+}: AnalyticsViewProps) {
   const { t } = useLanguage();
 
   if (!data) {
@@ -197,6 +207,8 @@ export function AnalyticsView({ period, habitId, habits, data }: AnalyticsViewPr
           <YearHeatmap cells={data.year} />
         </CardContent>
       </Card>
+
+      <CorrelationsBlock result={correlations} />
     </div>
   );
 }

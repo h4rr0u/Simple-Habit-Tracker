@@ -77,3 +77,16 @@ drizzle/      # SQL migrations
   page exposes period selection plus CSV/PDF buttons through
   `src/components/analytics/export-report-card.tsx`. Print layout rules live in
   the `@media print` block of `src/app/globals.css`.
+
+- **Correlation Analysis** — Added a 90-day habit-pair analysis to
+  `/analytics`. The pure engine in `src/lib/correlations.ts` compares
+  `P(B|A)` with `P(B|~A)` for every habit pair, reports associations whose
+  delta exceeds 15%, and returns the top three positive and negative results.
+  The analytics Server Component reuses the check-ins already loaded for the
+  charts (no extra queries) and passes the result to
+  `src/components/analytics/correlations-block.tsx`, which renders translated
+  trend rows or an insufficient-data empty state. Binary habits count when a
+  check-in exists, quantitative/timed habits need `value > 0`, and negative
+  habits are inverted (a check-in is a slip). Unit tests live in
+  `src/lib/correlations.test.ts`; all copy is in `ru.json` / `en.json` under
+  `analytics.correlations.*`.

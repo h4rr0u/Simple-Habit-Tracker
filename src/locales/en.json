@@ -183,6 +183,13 @@
   "analytics.export.csv": "Download CSV",
   "analytics.export.pdf": "Download PDF",
 
+  "analytics.correlations.title": "Correlation analysis",
+  "analytics.correlations.description": "How your habits influence each other over the last 90 days.",
+  "analytics.correlations.empty": "Not enough data for analysis yet. Keep checking in your habits!",
+  "analytics.correlations.noStrong": "No strong connections found yet. Keep tracking — patterns will emerge over time.",
+  "analytics.correlations.positive": "When you complete “{habitA}”, the chance of completing “{habitB}” increases by {percent}%.",
+  "analytics.correlations.negative": "When you complete “{habitA}”, the chance of completing “{habitB}” drops by {percent}%.",
+
   "reports.title": "Habit report",
   "reports.generatedAt": "Generated",
   "reports.range": "Period: {from} — {to}",

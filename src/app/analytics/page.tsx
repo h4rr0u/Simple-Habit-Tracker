@@ -1,5 +1,5 @@
 import { addDays, format, startOfDay } from "date-fns";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { asc, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { AnalyticsView } from "@/components/analytics/analytics-view";
@@ -15,6 +15,10 @@ import {
   getAverageRate,
   type HabitHistory,
 } from "@/lib/analytics";
+import {
+  computeCorrelations,
+  type CorrelationResult,
+} from "@/lib/correlations";
 import type { AnalyticsData, HabitSummary } from "@/types/analytics";
 
 /**
@@ -48,26 +52,35 @@ async function loadAnalyticsData(
   periodDays: number,
   habitId: number | null,
   todayKey: string
-): Promise<{ data: AnalyticsData; habits: HabitSummary[] }> {
-  const habitRows = await db
+): Promise<{
+  data: AnalyticsData;
+  /** All active habits, for the filter dropdown. */
+  habits: HabitSummary[];
+  /** False when there is nothing to chart (no habits, or the filter missed). */
+  hasScope: boolean;
+  correlations: CorrelationResult;
+}> {
+  // All active habits are loaded so the filter dropdown stays complete and
+  // the correlation block always compares the full habit set; the selected
+  // habit is then applied in memory (still two queries in total).
+  const allHabitRows = await db
     .select()
     .from(habits)
-    .where(
-      habitId
-        ? and(isNull(habits.archivedAt), eq(habits.id, habitId))
-        : isNull(habits.archivedAt)
-    )
+    .where(isNull(habits.archivedAt))
     .orderBy(asc(habits.id));
+  const habitRows = habitId
+    ? allHabitRows.filter((habit) => habit.id === habitId)
+    : allHabitRows;
 
   const rowsByHabit = new Map<number, Checkin[]>();
-  if (habitRows.length > 0) {
+  if (allHabitRows.length > 0) {
     const rows = await db
       .select()
       .from(checkins)
       .where(
         inArray(
           checkins.habitId,
-          habitRows.map((habit) => habit.id)
+          allHabitRows.map((habit) => habit.id)
         )
       )
       .orderBy(asc(checkins.date));
@@ -81,18 +94,24 @@ async function loadAnalyticsData(
   const histories: HabitHistory[] = habitRows.map((habit: Habit) =>
     buildHabitHistory(habit, rowsByHabit.get(habit.id) ?? [])
   );
-  const scope = habitId
-    ? histories.filter((history) => history.habit.id === habitId)
-    : histories;
 
   const [y, m, d] = todayKey.split("-").map(Number);
   const today = new Date(y, m - 1, d);
   const from = addDays(today, -(periodDays - 1));
 
-  const contributions = buildDayContributions(scope, from, today);
+  const contributions = buildDayContributions(histories, from, today);
   const scheduledTotal = contributions.reduce(
     (sum, day) => sum + day.scheduled,
     0
+  );
+
+  // Correlations always look at the last 90 days across all active habits,
+  // independent of the period/habit filters, and reuse the check-ins already
+  // loaded for the charts.
+  const correlations = computeCorrelations(
+    allHabitRows,
+    Array.from(rowsByHabit.values()).flat(),
+    { from: addDays(today, -89), to: today }
   );
 
   return {
@@ -103,9 +122,11 @@ async function loadAnalyticsData(
       scheduledTotal,
       // Records stay global (across all habits) regardless of the filter.
       records: computeRecords(histories, from, today),
-      year: buildYearCells(scope, addDays(today, -364), today),
+      year: buildYearCells(histories, addDays(today, -364), today),
     },
-    habits: habitRows.map((habit) => ({ id: habit.id, name: habit.name })),
+    habits: allHabitRows.map((habit) => ({ id: habit.id, name: habit.name })),
+    hasScope: habitRows.length > 0,
+    correlations,
   };
 }
 
@@ -125,18 +146,16 @@ export default async function AnalyticsPage({
   const habitId = habitKey === "all" ? null : Number(habitKey);
 
   const todayKey = format(startOfDay(new Date()), "yyyy-MM-dd");
-  const { data, habits: habitSummaries } = await loadAnalyticsData(
-    periodDays,
-    habitId,
-    todayKey
-  );
+  const { data, habits: habitSummaries, hasScope, correlations } =
+    await loadAnalyticsData(periodDays, habitId, todayKey);
 
   return (
     <AnalyticsView
       period={period}
       habitId={habitKey}
       habits={habitSummaries}
-      data={habitSummaries.length === 0 ? null : data}
+      data={hasScope ? data : null}
+      correlations={correlations}
     />
   );
 }
