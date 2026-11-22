@@ -379,8 +379,44 @@ body[data-print-view="true"] [data-slot="sidebar-inset"] > main {
     margin: 12mm;
   }
 
+  /* Reset design tokens to paper values.
+     The print route renders inside the app shell, whose `bg-background` is
+     oklch(0.145 0 0) in the (default) dark theme, while `.report-page *`
+     forces #111 text: unreadable as soon as the browser prints backgrounds
+     ("Background graphics" on). Redeclaring the tokens here keeps every
+     `var(--…)` surface — main, cards, borders, muted text, accents — light in
+     both themes. `!important` is required because `.dark` and
+     `.dark[data-accent="…"]` declare the same custom properties on <html> and
+     outrank `html` by specificity. */
   html,
-  body {
+  body,
+  [data-slot="sidebar-inset"],
+  .report-page {
+    --background: #fff !important;
+    --foreground: #111 !important;
+    --card: #fff !important;
+    --card-foreground: #111 !important;
+    --popover: #fff !important;
+    --popover-foreground: #111 !important;
+    --border: #d4d4d4 !important;
+    --muted: #f5f5f5 !important;
+    --muted-foreground: #555 !important;
+    --primary: #2563eb !important;
+    --primary-foreground: #fff !important;
+    --accent: #f1f5f9 !important;
+    --accent-foreground: #111 !important;
+    --chart-1: #2563eb !important;
+    --chart-2: #3b82f6 !important;
+    --chart-3: #1d4ed8 !important;
+  }
+
+  /* Insurance for surfaces that hard-code `bg-background` on the element
+     itself (utility classes win over the inherited custom property, but not
+     over an explicit background with !important). */
+  html,
+  body,
+  [data-slot="sidebar-inset"],
+  main {
     background: #fff !important;
   }
 

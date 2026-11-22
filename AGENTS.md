@@ -394,3 +394,40 @@ rose 3.60; в светлой теме emerald 3.51, rose 4.32. `ring-ring/50` �
   `language-card`, `export-report-card`, template gallery) moved from
   `text-primary` to `text-primary-text` so they meet 4.5:1 as well. No component
   API changed: `text-primary` is not a variant or prop, only a class string.
+
+- **Print themes: tokens are reset in `@media print`** — The
+  `/analytics/print` report renders inside the app shell, so
+  `[data-slot="sidebar-inset"]` carries `bg-background`. In the default dark
+  theme that is `oklch(0.145 0 0)` while `.report-page *` forces
+  `color: #111 !important`, which made the saved PDF unreadable whenever
+  "Background graphics" was enabled in the browser dialog (with it off Chrome
+  skips the background and the bug stayed hidden). The `@media print` block in
+  `src/app/globals.css` now redeclares the light tokens on
+  `html, body, [data-slot="sidebar-inset"], .report-page` —
+  `--background: #fff`, `--foreground: #111`, `--card`/`--card-foreground:
+  #fff`/`#111`, `--popover`/`--popover-foreground: #fff`/`#111`,
+  `--border: #d4d4d4`, `--muted: #f5f5f5`, `--muted-foreground: #555`,
+  `--primary: #2563eb`, `--primary-foreground: #fff`, `--accent: #f1f5f9`,
+  `--accent-foreground: #111`, `--chart-1/2/3: #2563eb/#3b82f6/#1d4ed8` — each
+  marked `!important` because `.dark` and `.dark[data-accent="…"]` declare the
+  same custom properties on `<html>` with higher specificity. A second rule
+  forces `background: #fff` on `html, body, [data-slot="sidebar-inset"], main`,
+  because a `bg-background` utility on the element itself wins over the
+  inherited custom property. Text color is left to the existing
+  `.report-page * { color: #111 !important }` rule. Borders keep
+  `#d4d4d4` — the color `.report-table` cells already used — so section rules
+  and table gridlines match in both themes. Print contrast (hex → relative
+  luminance):
+
+  | Pair | Ratio |
+  | --- | --- |
+  | `#111` on `#fff` | 18.88:1 |
+  | `#111` on `#f5f5f5` | 17.32:1 |
+  | `#555` on `#fff` | 7.46:1 |
+  | `#555` on `#f5f5f5` | 6.84:1 |
+  | `#fff` on `#2563eb` | 5.17:1 |
+  | `#d4d4d4` grid line on `#fff` | 1.48:1 (decorative, unchanged) |
+
+  Every text pair clears 4.5:1; the grid-line row is a document rule, not a UI
+  control, and deliberately keeps the existing print color so light-theme
+  output did not regress.
