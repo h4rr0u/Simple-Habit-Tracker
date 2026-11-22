@@ -37,9 +37,9 @@ export function AverageRadialChart({ averageRate, hasData }: AverageRadialChartP
         >
           <defs>
             <linearGradient id="averageGradient" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#38bdf8" />
-              <stop offset="55%" stopColor="#a78bfa" />
-              <stop offset="100%" stopColor="#f472b6" />
+              <stop offset="0%" stopColor="var(--chart-1)" />
+              <stop offset="55%" stopColor="var(--chart-2)" />
+              <stop offset="100%" stopColor="var(--chart-3)" />
             </linearGradient>
           </defs>
           <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />

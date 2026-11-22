@@ -245,3 +245,22 @@ drizzle/      # SQL migrations
   1-based). All dialog panel springs use `DIALOG_SPRING` from
   `src/lib/motion.ts` (`stiffness: 340, damping: 30, mass: 0.8`) — never
   hardcode it in `src/components/ui/dialog.tsx`.
+
+- **Theming & accent palettes** — Light / dark / system themes are handled by
+  `next-themes`: `ThemeProvider` in `src/components/providers.tsx` uses
+  `attribute="class"`, `defaultTheme="dark"` and `enableSystem`, so dark stays
+  the default while users can follow the OS. The `/settings` Appearance card
+  (`src/components/settings/appearance-card.tsx`) renders theme tabs plus
+  accent swatches for **blue**, **violet**, **emerald**, **orange** and
+  **rose**. Accent choices are stored in localStorage
+  (`habit-tracker:accent`) and applied by `src/lib/appearance.ts` as a
+  `data-accent` attribute on `<html>`; the pre-paint script in
+  `src/app/layout.tsx` applies it before first paint, and
+  `src/components/accent-provider.tsx` exposes `useAccent()` to the client.
+  `src/app/globals.css` maps each accent to `--primary`, `--ring`, `--accent`,
+  `--sidebar-*` and `--chart-1..5` overrides with separate light and `.dark`
+  blocks, so every palette keeps contrast in both themes. Primary surfaces
+  (buttons, checkboxes, sidebar, dashboard progress ring, analytics charts)
+  consume those variables, and the swatch dots use plain CSS classes
+  (`accent-swatch-*`) — never inline color styles. Copy lives under
+  `settings.appearance.*` in `ru.json` / `en.json`.

@@ -42,13 +42,13 @@ export function CompletionLineChart({ data, hasData }: CompletionLineChartProps)
         <ComposedChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
           <defs>
             <linearGradient id="completionStroke" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#38bdf8" />
-              <stop offset="50%" stopColor="#a78bfa" />
-              <stop offset="100%" stopColor="#f472b6" />
+              <stop offset="0%" stopColor="var(--chart-1)" />
+              <stop offset="50%" stopColor="var(--chart-2)" />
+              <stop offset="100%" stopColor="var(--chart-3)" />
             </linearGradient>
             <linearGradient id="completionFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.45} />
-              <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.45} />
+              <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid stroke={CHART_COLORS.grid} strokeDasharray="3 3" vertical={false} />
@@ -88,7 +88,7 @@ export function CompletionLineChart({ data, hasData }: CompletionLineChartProps)
             stroke="url(#completionStroke)"
             strokeWidth={2.5}
             dot={false}
-            activeDot={{ r: 4, fill: "#f472b6" }}
+            activeDot={{ r: 4, fill: "var(--chart-1)" }}
             isAnimationActive={!reduceMotion}
             animationDuration={450}
             animationEasing="ease-out"

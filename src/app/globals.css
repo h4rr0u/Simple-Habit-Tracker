@@ -221,6 +221,65 @@
   --sidebar-ring: oklch(0.645 0.246 16.439);
 }
 
+[data-accent="orange"] {
+  --primary: oklch(0.553 0.195 38.402);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.553 0.195 38.402);
+  --accent: oklch(0.98 0.016 73.684);
+  --accent-foreground: oklch(0.408 0.123 38.172);
+  --chart-1: oklch(0.553 0.195 38.402);
+  --chart-2: oklch(0.646 0.222 41.116);
+  --chart-3: oklch(0.705 0.213 47.604);
+  --chart-4: oklch(0.47 0.157 37.304);
+  --chart-5: oklch(0.408 0.123 38.172);
+  --sidebar-primary: oklch(0.553 0.195 38.402);
+  --sidebar-accent: oklch(0.954 0.038 75.164);
+  --sidebar-accent-foreground: oklch(0.408 0.123 38.172);
+  --sidebar-ring: oklch(0.553 0.195 38.402);
+}
+
+.dark[data-accent="orange"] {
+  --primary: oklch(0.705 0.213 47.604);
+  --ring: oklch(0.705 0.213 47.604);
+  --accent: oklch(0.408 0.123 38.172);
+  --accent-foreground: oklch(0.985 0 0);
+  --chart-1: oklch(0.705 0.213 47.604);
+  --chart-2: oklch(0.646 0.222 41.116);
+  --chart-3: oklch(0.553 0.195 38.402);
+  --chart-4: oklch(0.47 0.157 37.304);
+  --chart-5: oklch(0.408 0.123 38.172);
+  --sidebar-primary: oklch(0.705 0.213 47.604);
+  --sidebar-accent: oklch(0.408 0.123 38.172);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.705 0.213 47.604);
+}
+
+/* --------------------------- accent swatches -------------------------- */
+/* Fixed palette colors for the settings picker. These deliberately do not
+   reference --primary: every swatch must show its own color, whichever accent
+   is currently active. No inline styles, so light/dark both stay themable. */
+
+.accent-swatch-blue {
+  background-color: oklch(0.546 0.215 262.88);
+}
+
+.accent-swatch-violet {
+  background-color: oklch(0.541 0.281 293.009);
+}
+
+.accent-swatch-emerald {
+  background-color: oklch(0.596 0.145 163.225);
+}
+
+.accent-swatch-orange {
+  background-color: oklch(0.646 0.222 41.116);
+}
+
+.accent-swatch-rose {
+  background-color: oklch(0.586 0.253 17.585);
+}
+
+
 /* ------------------------------ density ------------------------------- */
 /* Comfortable is the default. Compact scales the root font size down, so
    every rem-based padding, gap and text shrinks together coherently. */

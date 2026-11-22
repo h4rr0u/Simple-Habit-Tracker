@@ -219,8 +219,8 @@ export function TimePatternCharts({ stats }: TimePatternChartsProps) {
             >
               <defs>
                 <linearGradient id="timePatternBars" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#a78bfa" />
-                  <stop offset="100%" stopColor="#38bdf8" />
+                  <stop offset="0%" stopColor="var(--chart-2)" />
+                  <stop offset="100%" stopColor="var(--chart-1)" />
                 </linearGradient>
               </defs>
               <CartesianGrid

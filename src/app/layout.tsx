@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AccentProvider } from "@/components/accent-provider";
 import { LanguageProvider } from "@/components/language-provider";
 import { MidnightRefresh } from "@/components/midnight-refresh";
 import { Providers } from "@/components/providers";
@@ -39,18 +40,20 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <script dangerouslySetInnerHTML={{ __html: appearanceInitScript }} />
         <Providers>
-          <MidnightRefresh />
-          <LanguageProvider>
-            <SidebarProvider>
-              <AppSidebar />
-              <SidebarInset>
-                <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-                  <SidebarTrigger className="-ml-1" />
-                </header>
-                <main className="flex flex-1 flex-col gap-4 p-4">{children}</main>
-              </SidebarInset>
-            </SidebarProvider>
-          </LanguageProvider>
+          <AccentProvider>
+            <MidnightRefresh />
+            <LanguageProvider>
+              <SidebarProvider>
+                <AppSidebar />
+                <SidebarInset>
+                  <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+                    <SidebarTrigger className="-ml-1" />
+                  </header>
+                  <main className="flex flex-1 flex-col gap-4 p-4">{children}</main>
+                </SidebarInset>
+              </SidebarProvider>
+            </LanguageProvider>
+          </AccentProvider>
         </Providers>
       </body>
     </html>

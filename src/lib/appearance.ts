@@ -11,14 +11,14 @@
 export const ACCENT_STORAGE_KEY = "habit-tracker:accent";
 export const DENSITY_STORAGE_KEY = "habit-tracker:density";
 
-export type AccentId = "blue" | "violet" | "emerald" | "rose";
+export type AccentId = "blue" | "violet" | "emerald" | "orange" | "rose";
 export type DensityId = "comfortable" | "compact";
 
 /** One selectable accent theme. */
 export interface AccentOption {
   id: AccentId;
-  /** Swatch color shown in the settings picker. */
-  swatch: string;
+  /** CSS class that paints the picker swatch (no inline colors). */
+  swatchClass: string;
 }
 
 /** One selectable density mode. */
@@ -27,10 +27,11 @@ export interface DensityOption {
 }
 
 export const ACCENT_OPTIONS: AccentOption[] = [
-  { id: "blue", swatch: "#3b82f6" },
-  { id: "violet", swatch: "#8b5cf6" },
-  { id: "emerald", swatch: "#10b981" },
-  { id: "rose", swatch: "#f43f5e" },
+  { id: "blue", swatchClass: "accent-swatch-blue" },
+  { id: "violet", swatchClass: "accent-swatch-violet" },
+  { id: "emerald", swatchClass: "accent-swatch-emerald" },
+  { id: "orange", swatchClass: "accent-swatch-orange" },
+  { id: "rose", swatchClass: "accent-swatch-rose" },
 ];
 
 export const DENSITY_OPTIONS: DensityOption[] = [

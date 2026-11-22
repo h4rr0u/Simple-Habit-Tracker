@@ -122,10 +122,10 @@ export function LongTermTrendsChart({ points }: LongTermTrendsChartProps) {
           <Line
             type="monotone"
             dataKey="percent"
-            stroke="#38bdf8"
+            stroke="var(--chart-1)"
             strokeWidth={2.5}
             dot={false}
-            activeDot={{ r: 4, fill: "#38bdf8" }}
+            activeDot={{ r: 4, fill: "var(--chart-1)" }}
             isAnimationActive={!reduceMotion}
             animationDuration={450}
             animationEasing="ease-out"
