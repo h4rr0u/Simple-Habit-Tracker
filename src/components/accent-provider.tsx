@@ -35,6 +35,27 @@ interface AccentContextValue {
 
 const AccentContext = createContext<AccentContextValue | null>(null);
 
+/** CSS class (globals.css) that suppresses transitions for one frame. */
+const TRANSITION_LOCK_CLASS = "disable-transitions";
+
+/**
+ * Swaps the palette with transitions disabled, then releases the lock after
+ * the new colours have been painted. Without this, surfaces that transition
+ * `background-color`/`color` would ease from the old accent to the new one.
+ */
+function applyAccentImmediately(accent: AccentId) {
+  const root = document.documentElement;
+  root.classList.add(TRANSITION_LOCK_CLASS);
+  applyAccent(accent);
+  // Force a style recalculation so the new tokens are committed while the
+  // lock is still on; two frames guarantee at least one painted frame with
+  // the lock before transitions come back.
+  void root.offsetWidth;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => root.classList.remove(TRANSITION_LOCK_CLASS));
+  });
+}
+
 export function AccentProvider({ children }: { children: React.ReactNode }) {
   // Server render and first client render stay on `null` so hydration matches;
   // the stored choice is resolved right after mount.
@@ -46,7 +67,7 @@ export function AccentProvider({ children }: { children: React.ReactNode }) {
 
   const setAccent = useCallback((next: AccentId) => {
     setAccentState(next);
-    applyAccent(next);
+    applyAccentImmediately(next);
   }, []);
 
   const value = useMemo<AccentContextValue>(

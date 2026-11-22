@@ -105,9 +105,9 @@ drizzle/      # SQL migrations
 
 - В **каждом** accent-блоке задавать все пять значений явно. Blue — исключение:
   он живёт в `:root` / `.dark` и не имеет `[data-accent="blue"]`. Каждый
-  `.dark[data-accent="…"]` обязан переопределять `--primary-foreground` и
-  `--sidebar-primary-foreground` (тёмный текст) — наследование белого из
-  `.dark` на светлый пастельный `--primary` даёт 2.4–3.8:1.
+  `.dark[data-accent="…"]` обязан переопределять `--primary-foreground`
+  (тёмный текст) — наследование белого из `.dark` на светлый пастельный
+  `--primary` даёт 2.4–3.8:1.
 - `--primary-hover` всегда **увеличивает** контраст с `--primary-foreground`:
   в светлой теме hover темнее, в тёмной — светлее. Старый `hover:bg-primary/80`
   осветлял кнопку и ронял emerald до ~2.8:1.
@@ -116,9 +116,8 @@ drizzle/      # SQL migrations
   `--primary-text`, чтобы все акценты выглядели одинаково.
 - focus ring — `focus-visible:ring-ring` (без `/50`): полупрозрачный ring давал
   1.8–2.7:1. Базовый `* { @apply … outline-ring }` тоже без альфы.
-- `--chart-1` и `--sidebar-primary` / `--sidebar-ring` держатся равными
-  `--primary` своего блока — так контраст гарантирован и для графика, и для
-  логотипа в сайдбаре.
+- `--chart-1` и `--sidebar-ring` держатся равными `--primary` своего блока —
+  так контраст гарантирован и для графика, и для focus-ring в сайдбаре.
 
 `primary-foreground` на `primary` (текст ≥ 4.5):
 
@@ -227,8 +226,7 @@ light) / 4.71 (rose dark), chart 4.81 (rose dark) / 5.17 (blue light). Все
   переиспользования `--primary` с альфой: альфа-модификаторы не проходят
   контраст в принципе и не выводятся из темы.
 - Тёмный violet `--primary` поднят с L 0.606 до 0.64 (белый текст был 4.21 на
-  хвосте допустимого); `--chart-1`, `--sidebar-primary`, `--ring` в том же
-  блоке идут за ним.
+  хвосте допустимого); `--chart-1`, `--ring` в том же блоке идут за ним.
 - Orange light проверялся с запасом: при L 0.553 белый текст давал 4.98 —
   слишком близко к порогу с учётом различий gamut mapping между движками,
   поэтому L 0.543 (5.19).
@@ -316,6 +314,26 @@ inline-цвет остаётся законно, — `habit.color` (цвет в�
 
 Минимум 5.85:1 — выше порога текста 4.5 и графики 3:1; бордеры
 `success/25…40` декоративные и порог не нормируют.
+
+### Destructive-токен: добавлен `--destructive-foreground`
+
+`--destructive` был объявлен в `:root` / `.dark` (и проброшен в `@theme inline`
+как `--color-destructive`), но парного foreground-токена не существовало:
+первое же `bg-destructive text-destructive-foreground` отрендерилось бы
+невалидным цветом. Добавлены обе половины — `@theme inline` и значения в
+`:root` / `.dark` (accent-блоки `--destructive*` не переопределяют, поэтому
+дублировать не нужно).
+
+- light `--destructive: oklch(0.577 0.245 27.325)` → `#e7000b`,
+  `--destructive-foreground: oklch(0.985 0 0)` → `#fafafa`.
+- dark `--destructive: oklch(0.704 0.191 22.216)` → `#ff6467` (светлый красный),
+  `--destructive-foreground: oklch(0.18 0 0)` → `#121212`. Белый текст на нём
+  дал бы 2.77:1, поэтому foreground тёмный — как у остальных dark-пастелей.
+
+| Пара | Light | Dark |
+| --- | --- | --- |
+| `--destructive-foreground` на `--destructive` | 4.56:1 (`#fafafa` на `#e7000b`) | 6.50:1 (`#121212` на `#ff6467`) |
+| `--destructive` как текст на `--card` | 4.76:1 (`#e7000b` на `#ffffff`) | 6.19:1 (`#ff6467` на `#171717`) |
 
 ## Feature history
 
@@ -503,14 +521,11 @@ inline-цвет остаётся законно, — `habit.color` (цвет в�
   against WCAG 2.1 (OKLCH → sRGB → relative luminance; tables above). Two new
   tokens, `--primary-hover` and `--primary-text`, were added to `@theme inline`
   and to all ten accent blocks (blue lives in `:root` / `.dark`). Dark themes
-  now set `--primary-foreground: oklch(0.18 0 0)` (and the matching
-  `--sidebar-primary-foreground`) instead of inheriting white, because every
-  dark `--primary` is a light pastel (2.36–3.63:1 before). Light emerald, rose
-  and orange keep white text but their `--primary` was darkened to L 0.50 /
-  0.48 / 0.543 (orange originally cleared the bar at 4.98, but the margin was
-  too thin next to browser differences in gamut mapping). Every light accent
-  block now also declares `--sidebar-primary-foreground`, so the sidebar logo
-  does not depend on what `:root` happens to hold.
+  now set `--primary-foreground: oklch(0.18 0 0)` instead of inheriting white,
+  because every dark `--primary` is a light pastel (2.36–3.63:1 before). Light
+  emerald, rose and orange keep white text but their `--primary` was darkened
+  to L 0.50 / 0.48 / 0.543 (orange originally cleared the bar at 4.98, but the
+  margin was too thin next to browser differences in gamut mapping).
   `button.tsx` default hover is now `hover:bg-primary-hover` (was
   `bg-primary/80`, which lightened the button), `variant="link"` uses
   `text-primary-text`, and every `focus-visible:ring-ring/50` became
@@ -662,3 +677,32 @@ inline-цвет остаётся законно, — `habit.color` (цвет в�
   fixed green (light `#016630`, dark `#4fd57f`), deliberately off the emerald
   accent hue so "done" never merges with `--primary`. Contrast: 7.13 / 9.52 on
   card, 6.83 / 9.95 for foreground on success; table above.
+
+- **Cleanup v1.3.0** — Dead sidebar tokens, the dark variant, browser-chrome
+  metadata and two Russian strings were fixed. `--sidebar-primary` /
+  `--sidebar-primary-foreground` were declared in all ten accent blocks (and
+  exposed in `@theme inline` as `--color-sidebar-primary*`) but never consumed
+  — the sidebar uses `--sidebar-accent` / `--sidebar-ring` — so all 20
+  declarations plus the two theme mappings were removed;
+  `grep -rn "sidebar-primary" src` is now empty. `@custom-variant dark` changed
+  from `(&:is(.dark *))` to the shadcn v4 canon `(&:where(.dark, .dark *))`,
+  which also matches an element that *is* `.dark`: previously a `dark:` utility
+  on `<html>`/`<body>` (both carry the class) silently did nothing. The
+  compiled CSS now emits `:where(.dark,.dark *)` (verified in
+  `.next/static/chunks/*.css`) and the old `:is(.dark *)` selector is gone.
+  `--destructive-foreground` was added to `@theme inline` and to `:root` /
+  `.dark` (see the contrast table above). `app/layout.tsx` gained a `viewport`
+  export with `colorScheme: "dark light"` and two `themeColor` entries
+  (`#fafafa` light, `#0a0a0a` dark — the neutral `--background` values, not
+  per-accent, because themeColor is static metadata while the accent is a
+  localStorage attribute; both render as `<meta>` tags in the built HTML).
+  `ru.json` now spells «Тёмная» and «Зелёный» with ё (the file already used ё
+  elsewhere); no other keys changed. Optional item 6 was implemented:
+  `applyAccentImmediately()` in `src/components/accent-provider.tsx` adds
+  `.disable-transitions` to `<html>`, swaps `data-accent`, forces a reflow and
+  drops the class after two animation frames, so an accent switch is instant
+  instead of easing through a blend of two palettes (next-themes'
+  `disableTransitionOnChange` only covers theme changes). The class is declared
+  in `globals.css` as `transition: none !important` on the root and all
+  descendants, pseudo-elements included. Palettes, contrast tokens, charts,
+  success, period tokens and theme mechanics are otherwise untouched.
