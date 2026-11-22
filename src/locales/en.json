@@ -207,6 +207,15 @@
   "analytics.timePatterns.night": "Night",
   "analytics.timePatterns.nightRange": "22:00–04:59",
 
+  "analytics.longTerm.title": "Long-term trends",
+  "analytics.longTerm.description": "Average habit completion rate by month for the selected period.",
+  "analytics.longTerm.periodLabel": "Period",
+  "analytics.longTerm.period.12": "1 year",
+  "analytics.longTerm.period.36": "3 years",
+  "analytics.longTerm.period.60": "5 years",
+  "analytics.longTerm.rate": "Completion",
+  "analytics.longTerm.empty": "Not enough data yet to build long-term trends.",
+
   "reports.title": "Habit report",
   "reports.generatedAt": "Generated",
   "reports.range": "Period: {from} — {to}",

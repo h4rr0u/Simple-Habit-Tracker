@@ -8,6 +8,7 @@ import { AnalyticsFilters } from "@/components/analytics/analytics-filters";
 import { CorrelationsBlock } from "@/components/analytics/correlations-block";
 import { ExportReportCard } from "@/components/analytics/export-report-card";
 import { formatPercent } from "@/components/analytics/chart-theme";
+import { LongTermTrendsBlock } from "@/components/analytics/long-term-trends-block";
 import { TimePatternsBlock } from "@/components/analytics/time-patterns-block";
 import { YearHeatmap } from "@/components/analytics/year-heatmap";
 import { useLanguage, type TranslationKey } from "@/components/language-provider";
@@ -21,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { CorrelationResult } from "@/lib/correlations";
+import type { LongTermPeriod, LongTermStats } from "@/lib/long-term-stats";
 import type { TimePatternStats } from "@/lib/time-stats";
 import type {
   AnalyticsData,
@@ -74,6 +76,8 @@ interface AnalyticsViewProps {
   period: AnalyticsPeriod;
   /** "all" or a habit id as string, mirroring the URL contract. */
   habitId: string;
+  /** Long-term trend window, mirroring the URL contract. */
+  trend: LongTermPeriod;
   habits: HabitSummary[];
   /** Null → the "nothing to analyse" empty state. */
   data: AnalyticsData | null;
@@ -81,15 +85,19 @@ interface AnalyticsViewProps {
   correlations: CorrelationResult;
   /** Weekday and time-of-day check-in patterns over the last 90 days. */
   timePatterns: TimePatternStats;
+  /** Monthly completion trend over the selected multi-year window. */
+  longTerm: LongTermStats;
 }
 
 export function AnalyticsView({
   period,
   habitId,
+  trend,
   habits,
   data,
   correlations,
   timePatterns,
+  longTerm,
 }: AnalyticsViewProps) {
   const { t } = useLanguage();
 
@@ -202,6 +210,10 @@ export function AnalyticsView({
           <WeekdayBarChart weekdays={data.weekdays} hasData={hasData} />
         </CardContent>
       </Card>
+
+      <Suspense fallback={<div className="h-72" />}>
+        <LongTermTrendsBlock period={trend} stats={longTerm} />
+      </Suspense>
 
       <TimePatternsBlock stats={timePatterns} />
 

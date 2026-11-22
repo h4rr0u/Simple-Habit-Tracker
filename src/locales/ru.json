@@ -207,6 +207,15 @@
   "analytics.timePatterns.night": "Ночь",
   "analytics.timePatterns.nightRange": "22:00–04:59",
 
+  "analytics.longTerm.title": "Долгосрочные тренды",
+  "analytics.longTerm.description": "Средний процент выполнения привычек по месяцам за выбранный период.",
+  "analytics.longTerm.periodLabel": "Период",
+  "analytics.longTerm.period.12": "1 год",
+  "analytics.longTerm.period.36": "3 года",
+  "analytics.longTerm.period.60": "5 лет",
+  "analytics.longTerm.rate": "Выполнение",
+  "analytics.longTerm.empty": "Данных пока слишком мало для построения долгосрочных трендов.",
+
   "reports.title": "Отчет по привычкам",
   "reports.generatedAt": "Сформирован",
   "reports.range": "Период: {from} — {to}",

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { AnalyticsView } from "@/components/analytics/analytics-view";
 import { db } from "@/db";
+import { getLongTermStats } from "@/db/queries";
 import { checkins, habits, type Checkin, type Habit } from "@/db/schema";
 import {
   buildDayContributions,
@@ -19,6 +20,11 @@ import {
   computeCorrelations,
   type CorrelationResult,
 } from "@/lib/correlations";
+import {
+  LONG_TERM_PERIODS,
+  type LongTermPeriod,
+  type LongTermStats,
+} from "@/lib/long-term-stats";
 import {
   computeTimePatternStats,
   type TimePatternStats,
@@ -44,6 +50,9 @@ const searchParamsSchema = z.object({
   habit: z
     .union([z.literal("all"), z.string().regex(/^\d+$/)])
     .default("all"),
+  // Long-term trend window (12 / 36 / 60 months). Kept in the URL so the
+  // server aggregates exactly the selected window; the client never slices it.
+  trend: z.enum(LONG_TERM_PERIODS).default("12"),
 });
 
 /**
@@ -55,7 +64,8 @@ const searchParamsSchema = z.object({
 async function loadAnalyticsData(
   periodDays: number,
   habitId: number | null,
-  todayKey: string
+  todayKey: string,
+  trend: LongTermPeriod
 ): Promise<{
   data: AnalyticsData;
   /** All active habits, for the filter dropdown. */
@@ -65,6 +75,8 @@ async function loadAnalyticsData(
   correlations: CorrelationResult;
   /** Weekday/time-of-day patterns over the last 90 days. */
   timePatterns: TimePatternStats;
+  /** Monthly completion trend over the selected multi-year window. */
+  longTerm: LongTermStats;
 }> {
   // All active habits are loaded so the filter dropdown stays complete and
   // the correlation block always compares the full habit set; the selected
@@ -131,6 +143,10 @@ async function loadAnalyticsData(
     .filter((row) => row.date >= patternFrom && row.date <= todayKey);
   const timePatterns = computeTimePatternStats(patternRows);
 
+  // One SQL query groups check-ins by habit-month; the selected window lives in
+  // the URL so the client never filters years of points itself.
+  const longTerm = await getLongTermStats(trend, today);
+
   return {
     data: {
       daily: buildDailySeries(contributions),
@@ -145,6 +161,7 @@ async function loadAnalyticsData(
     hasScope: habitRows.length > 0,
     correlations,
     timePatterns,
+    longTerm,
   };
 }
 
@@ -157,9 +174,11 @@ export default async function AnalyticsPage({
   const parsed = searchParamsSchema.safeParse({
     period: raw.period,
     habit: raw.habit,
+    trend: raw.trend,
   });
   const period = parsed.success ? parsed.data.period : "30";
   const habitKey = parsed.success ? parsed.data.habit : "all";
+  const trend = parsed.success ? parsed.data.trend : "12";
   const periodDays = Number(period);
   const habitId = habitKey === "all" ? null : Number(habitKey);
 
@@ -170,16 +189,19 @@ export default async function AnalyticsPage({
     hasScope,
     correlations,
     timePatterns,
-  } = await loadAnalyticsData(periodDays, habitId, todayKey);
+    longTerm,
+  } = await loadAnalyticsData(periodDays, habitId, todayKey, trend);
 
   return (
     <AnalyticsView
       period={period}
       habitId={habitKey}
+      trend={trend}
       habits={habitSummaries}
       data={hasScope ? data : null}
       correlations={correlations}
       timePatterns={timePatterns}
+      longTerm={longTerm}
     />
   );
 }

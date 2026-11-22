@@ -1,8 +1,16 @@
-import { format, startOfDay } from "date-fns";
+import { format, startOfDay, startOfMonth, subMonths } from "date-fns";
 import { and, asc, between, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { accrueFreezesSince } from "@/lib/freeze";
 import { buildCompletionCheckins } from "@/lib/habit-target";
+import {
+  buildLongTermStats,
+  LONG_TERM_MONTHS,
+  type LongTermHabit,
+  type LongTermPeriod,
+  type LongTermStats,
+  type MonthlyCompletionRow,
+} from "@/lib/long-term-stats";
 import {
   calculateFreezeConsumption,
   type FreezeHistory,
@@ -450,6 +458,94 @@ export async function upsertCheckin(
       .run();
     return "set";
   }, { behavior: "immediate" });
+}
+
+/**
+ * Monthly completion counts for the long-term trends chart.
+ *
+ * The heavy side is aggregated inside SQLite: check-ins are grouped by habit
+ * and calendar month, so at most one row per habit-month is returned no matter
+ * how many years of data exist. The (small) habit list rides along in the same
+ * statement, which is why this is a single query.
+ *
+ * The scheduled side is derived afterwards by {@link buildLongTermStats} from
+ * the habit schedule, reusing the shared schedule engine instead of copying
+ * its rules into SQL. Only active habits are considered, matching the rest of
+ * the analytics page.
+ */
+export async function getLongTermStats(
+  period: LongTermPeriod,
+  today: Date = new Date()
+): Promise<LongTermStats> {
+  const end = startOfDay(today);
+  const windowStart = startOfMonth(
+    subMonths(end, LONG_TERM_MONTHS[period] - 1)
+  );
+  const from = format(windowStart, "yyyy-MM-dd");
+  const to = format(end, "yyyy-MM-dd");
+
+  const rows = await db
+    .select({
+      habitId: habits.id,
+      type: habits.type,
+      schedule: habits.schedule,
+      createdAt: habits.createdAt,
+      month: sql<string | null>`strftime('%Y-%m', ${checkins.date})`,
+      // Check-ins that meet the habit target. Negative habits record slips,
+      // so their target-meeting count is deliberately zero here.
+      completed: sql<number>`coalesce(sum(
+        case
+          when ${checkins.id} is null then 0
+          when ${habits.type} = 'negative' then 0
+          when ${habits.targetValue} is null or ${habits.targetValue} <= 0 then 1
+          when ${habits.type} = 'timed'
+            and coalesce(${checkins.value}, 0) >= ${habits.targetValue} * 60 then 1
+          when coalesce(${checkins.value}, 0) >= ${habits.targetValue} then 1
+          else 0
+        end
+      ), 0)`,
+      // Every row, used as the slip count for negative habits.
+      checkins: sql<number>`count(${checkins.id})`,
+    })
+    .from(habits)
+    .leftJoin(
+      checkins,
+      and(
+        eq(checkins.habitId, habits.id),
+        between(checkins.date, from, to)
+      )
+    )
+    .where(isNull(habits.archivedAt))
+    .groupBy(habits.id, sql`strftime('%Y-%m', ${checkins.date})`);
+
+  const habitMap = new Map<number, LongTermHabit>();
+  const monthlyRows: MonthlyCompletionRow[] = [];
+
+  for (const row of rows) {
+    if (!habitMap.has(row.habitId)) {
+      habitMap.set(row.habitId, {
+        id: row.habitId,
+        type: row.type,
+        schedule: row.schedule as unknown as Schedule,
+        createdAt: row.createdAt,
+      });
+    }
+    if (row.month) {
+      monthlyRows.push({
+        habitId: row.habitId,
+        month: row.month,
+        completed: Number(row.completed),
+        checkins: Number(row.checkins),
+      });
+    }
+  }
+
+  return buildLongTermStats(
+    Array.from(habitMap.values()),
+    monthlyRows,
+    period,
+    today
+  );
 }
 
 /* ------------------------------ reminders ----------------------------- */

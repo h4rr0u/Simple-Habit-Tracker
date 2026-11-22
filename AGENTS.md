@@ -108,3 +108,20 @@ drizzle/      # SQL migrations
   `MIN_CHECKINS_FOR_PATTERNS` (5). Copy lives under `analytics.timePatterns.*`;
   weekday labels reuse the shared `weekday.*` keys. Tests:
   `src/lib/time-stats.test.ts`.
+
+- **Long-term trends** — Added a "long-term trends" block to `/analytics`
+  covering 12, 36 or 60 months. `getLongTermStats()` in `src/db/queries.ts`
+  performs a **single** SQL query: check-ins are grouped by habit and
+  `strftime('%Y-%m', date)` inside SQLite, so only one row per habit-month is
+  returned regardless of how many years of check-ins exist. The scheduled side
+  is derived in `src/lib/long-term-stats.ts` from the (small) habit list with
+  the shared `isHabitDueOn()` engine, so schedule rules are not duplicated in
+  SQL; months before the first habit creation are dropped and the rate is
+  clamped to 0..1. The selected window lives in the URL (`?trend=12|36|60`),
+  so the client never filters years of points. The card is
+  `src/components/analytics/long-term-trends-block.tsx`; Recharts renders in
+  `long-term-trends-chart.tsx` with `dot={false}`, a 0–100% Y axis,
+  `type="monotone"` and localized month labels via date-fns locales. The empty
+  state appears below `MIN_MONTHS_FOR_LONG_TERM` (2 populated months). Copy is
+  under `analytics.longTerm.*`; tests live in
+  `src/lib/long-term-stats.test.ts`.
