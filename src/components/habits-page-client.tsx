@@ -1,9 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { FilterX, Plus, Sparkles } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type Announcements,
+  type DragEndEvent,
+  type KeyboardCoordinateGetter,
+  type UniqueIdentifier,
+} from "@dnd-kit/core";
+import { toast } from "sonner";
 
-import { HabitCard } from "@/components/habit-card";
+import { moveHabitsAction } from "@/actions/habits";
+import { DraggableHabitCard } from "@/components/draggable-habit-card";
 import { HabitFormDialog } from "@/components/habit-form-dialog";
 import { HabitTemplateGallery } from "@/components/habit-template-gallery";
 import { useLanguage } from "@/components/language-provider";
@@ -16,11 +29,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Checkin, Habit } from "@/db/schema";
+import {
+  cellFromPoint,
+  HABIT_GRID_COLUMNS,
+  resolveHabitMove,
+} from "@/lib/habit-grid";
 import type { HabitTemplate } from "@/lib/templates";
 
 /**
  * Client shell for /habits: "+ New habit" button with dialog, category
- * filter, grid of HabitCards and an empty state.
+ * filter, the free-form Grid Canvas of HabitCards and empty states.
+ *
+ * The canvas is a four-column CSS grid whose rows are unbounded. Every card
+ * is pinned to its stored cell (`positionX` / `positionY`), so gaps are real:
+ * a habit on row 5 leaves four empty rows above it. Dragging only moves the
+ * card that was picked up; no neighbour reflows, and a drop on an occupied
+ * cell swaps the two cards.
  */
 
 export interface HabitCardData {
@@ -38,6 +62,21 @@ interface HabitsPageClientProps {
 /** Sentinel for the "all categories" option (categories are user text). */
 const ALL_CATEGORIES = "__all__";
 
+/** Fixed canvas geometry: four columns, rows at least one card tall. */
+const GRID_STYLE: CSSProperties = {
+  gridTemplateColumns: `repeat(${HABIT_GRID_COLUMNS}, minmax(0, 1fr))`,
+  gridAutoRows: "minmax(10rem, auto)",
+};
+
+/** Parses a computed grid track list ("180px 180px …") into pixel sizes. */
+function parseTrackSizes(value: string): number[] {
+  if (!value || value === "none") return [];
+  return value
+    .split(/\s+/)
+    .map((part) => Number.parseFloat(part))
+    .filter((size) => Number.isFinite(size));
+}
+
 export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [templateGalleryOpen, setTemplateGalleryOpen] = useState(false);
@@ -45,7 +84,73 @@ export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
     null
   );
   const [category, setCategory] = useState(ALL_CATEGORIES);
+  // Local mirror of the server canvas so a dropped tile lands instantly.
+  const [orderedCards, setOrderedCards] = useState<HabitCardData[]>(cards);
+  const [isDragging, setIsDragging] = useState(false);
+  // Screen-reader feedback for a completed drop (announcements only cover
+  // pick-up and cancel because the canvas has no droppable targets).
+  const [liveMessage, setLiveMessage] = useState("");
+  const gridRef = useRef<HTMLDivElement>(null);
   const { t } = useLanguage();
+
+  // Re-sync when the server sends a new snapshot (refresh, check-in mutation,
+  // or the revalidation that follows a successful move).
+  useEffect(() => {
+    setOrderedCards(cards);
+  }, [cards]);
+
+  // On touch screens an unprevented `touchmove` lets the browser start
+  // scrolling, which fires `pointercancel` and drops the tile mid-gesture.
+  // Blocking the page scroll only while a tile is lifted keeps the drag alive
+  // and still allows normal scrolling everywhere else.
+  useEffect(() => {
+    if (!isDragging) return;
+    const blockScroll = (event: TouchEvent) => {
+      if (event.cancelable) event.preventDefault();
+    };
+    document.addEventListener("touchmove", blockScroll, { passive: false });
+    return () => document.removeEventListener("touchmove", blockScroll);
+  }, [isDragging]);
+
+  // One arrow press moves the lifted card by exactly one canvas cell instead
+  // of dnd-kit's default 25 px nudge, which would need a dozen presses.
+  const keyboardCoordinateGetter: KeyboardCoordinateGetter = (
+    event,
+    { currentCoordinates }
+  ) => {
+    const grid = gridRef.current;
+    if (!grid) return undefined;
+
+    const styles = window.getComputedStyle(grid);
+    const columnStep =
+      (parseTrackSizes(styles.gridTemplateColumns)[0] ?? 0) +
+      (Number.parseFloat(styles.columnGap) || 0);
+    const rowStep =
+      (parseTrackSizes(styles.gridTemplateRows)[0] ?? 0) +
+      (Number.parseFloat(styles.rowGap) || 0);
+
+    switch (event.code) {
+      case "ArrowRight":
+        return { ...currentCoordinates, x: currentCoordinates.x + columnStep };
+      case "ArrowLeft":
+        return { ...currentCoordinates, x: currentCoordinates.x - columnStep };
+      case "ArrowDown":
+        return { ...currentCoordinates, y: currentCoordinates.y + rowStep };
+      case "ArrowUp":
+        return { ...currentCoordinates, y: currentCoordinates.y - rowStep };
+      default:
+        return undefined;
+    }
+  };
+
+  const sensors = useSensors(
+    // iOS-style long press: drag only starts after holding for 250 ms without
+    // moving more than 5 px. A plain click/tap still activates the controls.
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    }),
+    useSensor(KeyboardSensor, { coordinateGetter: keyboardCoordinateGetter })
+  );
 
   const openCreateDialog = () => {
     setSelectedTemplate(null);
@@ -79,10 +184,134 @@ export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
   const visibleCards = useMemo(
     () =>
       category === ALL_CATEGORIES
-        ? cards
-        : cards.filter((card) => card.habit.category === category),
-    [cards, category]
+        ? orderedCards
+        : orderedCards.filter((card) => card.habit.category === category),
+    [orderedCards, category]
   );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setIsDragging(false);
+
+    const { active } = event;
+    const grid = gridRef.current;
+    // `translated` is dnd-kit's post-drag rect and already includes scroll
+    // adjustments, which keeps drops accurate if the page scrolled mid-drag.
+    const droppedRect = active.rect.current.translated ?? active.rect.current.initial;
+    const movingId = Number(active.id);
+    const movingCard = orderedCards.find((card) => card.habit.id === movingId);
+    if (!grid || !droppedRect || !movingCard) return;
+
+    // Measure the grid once per drop: computed track sizes already reflect
+    // the real layout (rows grow with their tallest card), and empty rows
+    // below the last card are extrapolated from the last row height.
+    const gridRect = grid.getBoundingClientRect();
+    const styles = window.getComputedStyle(grid);
+    const columnWidths = parseTrackSizes(styles.gridTemplateColumns);
+    const rowHeights = parseTrackSizes(styles.gridTemplateRows);
+    const columnGap = Number.parseFloat(styles.columnGap) || 0;
+    const rowGap = Number.parseFloat(styles.rowGap) || 0;
+    const defaultRowHeight =
+      rowHeights[rowHeights.length - 1] ??
+      grid.firstElementChild?.getBoundingClientRect().height ??
+      160;
+
+    // The cell under the centre of the dragged card, not its top-left corner,
+    // so a drop feels correct even when the pointer grabs a card near an edge.
+    const centerX =
+      droppedRect.left - gridRect.left + droppedRect.width / 2;
+    const centerY =
+      droppedRect.top - gridRect.top + droppedRect.height / 2;
+
+    const target = cellFromPoint(centerX, centerY, {
+      columnWidth:
+        columnWidths[0] ??
+        (gridRect.width - columnGap * (HABIT_GRID_COLUMNS - 1)) /
+          HABIT_GRID_COLUMNS,
+      columnGap,
+      rowHeights,
+      rowGap,
+      defaultRowHeight,
+    });
+
+    // Occupancy is checked against every card, including ones hidden by the
+    // category filter, so a move can never create overlapping cells.
+    const updates = resolveHabitMove(
+      orderedCards.map((card) => ({
+        id: card.habit.id,
+        positionX: card.habit.positionX,
+        positionY: card.habit.positionY,
+      })),
+      movingId,
+      target
+    );
+    if (updates.length === 0) return;
+
+    const updateById = new Map(updates.map((update) => [update.id, update]));
+    const previous = orderedCards;
+    const next = orderedCards.map((card) => {
+      const update = updateById.get(card.habit.id);
+      return update
+        ? {
+            ...card,
+            habit: {
+              ...card.habit,
+              positionX: update.positionX,
+              positionY: update.positionY,
+            },
+          }
+        : card;
+    });
+
+    // Optimistic update: the grid settles immediately, the action persists it.
+    setOrderedCards(next);
+    setLiveMessage(
+      t("habits.dnd.movedTo", {
+        name: movingCard.habit.name,
+        row: target.y + 1,
+        column: target.x + 1,
+      })
+    );
+
+    void moveHabitsAction(
+      updates.map((update) => ({
+        id: String(update.id),
+        positionX: update.positionX,
+        positionY: update.positionY,
+      }))
+    ).then((result) => {
+      if (result.ok) return;
+      setOrderedCards(previous);
+      toast.error(t("habits.dnd.moveFailed"));
+    });
+  };
+
+  // Localized screen-reader copy: dnd-kit ships English defaults.
+  const screenReaderInstructions = useMemo(
+    () => ({ draggable: t("habits.dnd.instructions") }),
+    [t]
+  );
+
+  // Names are looked up across every card (a filtered-out tile can still be
+  // the active one).
+  const habitNameById = useMemo(
+    () => new Map(cards.map((card) => [String(card.habit.id), card.habit.name])),
+    [cards]
+  );
+
+  const announcements = useMemo<Announcements>(() => {
+    const name = (id: UniqueIdentifier) => habitNameById.get(String(id)) ?? "";
+
+    return {
+      onDragStart: ({ active }) =>
+        t("habits.dnd.pickedUp", { name: name(active.id) }),
+      // The canvas has no droppable targets, so the landing cell is announced
+      // by the `aria-live` region once the drop has been resolved.
+      onDragOver: () => undefined,
+      onDragEnd: () => undefined,
+      onDragCancel: ({ active }) =>
+        t("habits.dnd.cancelled", { name: name(active.id) }),
+    };
+  }, [t, habitNameById]);
 
   return (
     <div className="space-y-4">
@@ -183,18 +412,30 @@ export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {visibleCards.map((card) => (
-            <HabitCard
-              key={card.habit.id}
-              habit={card.habit}
-              today={today}
-              todayCheckin={card.todayCheckin ?? undefined}
-              streak={card.streak}
-              isDueToday={card.isDueToday}
-            />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          onDragStart={() => setIsDragging(true)}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setIsDragging(false)}
+          accessibility={{ announcements, screenReaderInstructions }}
+        >
+          <div ref={gridRef} className="grid gap-4" style={GRID_STYLE}>
+            {visibleCards.map((card) => (
+              <DraggableHabitCard
+                key={card.habit.id}
+                id={String(card.habit.id)}
+                habit={card.habit}
+                today={today}
+                todayCheckin={card.todayCheckin ?? undefined}
+                streak={card.streak}
+                isDueToday={card.isDueToday}
+              />
+            ))}
+          </div>
+          <p className="sr-only" aria-live="polite">
+            {liveMessage}
+          </p>
+        </DndContext>
       )}
     </div>
   );

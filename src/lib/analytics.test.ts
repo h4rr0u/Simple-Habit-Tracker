@@ -30,6 +30,8 @@ function habit(overrides: Partial<Habit> = {}): Habit {
     unit: null,
     category: null,
     tags: [],
+    positionX: 0,
+    positionY: 0,
     freezeBank: 0,
     createdAt: new Date(2020, 0, 1),
     archivedAt: null,

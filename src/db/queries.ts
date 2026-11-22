@@ -2,6 +2,10 @@ import { format, startOfDay, startOfMonth, subMonths } from "date-fns";
 import { and, asc, between, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { accrueFreezesSince } from "@/lib/freeze";
+import {
+  nextFreeCell,
+  type HabitGridUpdate,
+} from "@/lib/habit-grid";
 import { buildCompletionCheckins } from "@/lib/habit-target";
 import {
   buildLongTermStats,
@@ -134,8 +138,21 @@ function spentFreezeBank(spend: number) {
 /* ------------------------------- habits ------------------------------- */
 
 export async function createHabit(data: Omit<NewHabit, "id" | "createdAt">): Promise<Habit> {
-  const [habit] = await db.insert(habits).values(data).returning();
-  return habit;
+  // New habits claim the first free canvas cell. The occupancy read and the
+  // insert share one IMMEDIATE transaction so two concurrent creates (web vs.
+  // bot) cannot claim the same cell.
+  return db.transaction((tx): Habit => {
+    const occupied = tx
+      .select({ positionX: habits.positionX, positionY: habits.positionY })
+      .from(habits)
+      .all();
+    const cell = nextFreeCell(occupied);
+    return tx
+      .insert(habits)
+      .values({ ...data, positionX: cell.x, positionY: cell.y })
+      .returning()
+      .get();
+  }, { behavior: "immediate" });
 }
 export async function updateHabit(
   id: number,
@@ -168,8 +185,27 @@ export async function archiveHabit(id: number): Promise<Habit | undefined> {
  * {@link syncHabitFreezes} is the only place that accrues or spends freezes.
  */
 export async function listHabits(options?: { includeArchived?: boolean }): Promise<Habit[]> {
-  const query = db.select().from(habits).orderBy(asc(habits.createdAt));
+  const query = db
+    .select()
+    .from(habits)
+    .orderBy(asc(habits.positionY), asc(habits.positionX), asc(habits.createdAt));
   return options?.includeArchived ? await query : await query.where(isNull(habits.archivedAt));
+}
+
+/**
+ * Persists canvas positions: every update sets the habit's `positionX` and
+ * `positionY`. Runs in one transaction so the grid never observes a partially
+ * written move (important for swaps, which touch two rows).
+ */
+export async function moveHabits(positions: HabitGridUpdate[]): Promise<void> {
+  db.transaction((tx) => {
+    for (const { id, positionX, positionY } of positions) {
+      tx.update(habits)
+        .set({ positionX, positionY })
+        .where(eq(habits.id, id))
+        .run();
+    }
+  }, { behavior: "immediate" });
 }
 
 /** Returns a single habit by id. Strictly read-only (see {@link listHabits}). */

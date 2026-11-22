@@ -10,6 +10,7 @@ vi.mock("@/db/queries", () => ({
   createHabit: vi.fn(),
   getHabitById: vi.fn(),
   incrementCheckin: vi.fn(),
+  moveHabits: vi.fn(),
   syncAllFreezes: vi.fn(),
   syncHabitFreezes: vi.fn(),
   toggleCheckin: vi.fn(),
@@ -22,6 +23,7 @@ import {
   createHabit,
   getHabitById,
   incrementCheckin,
+  moveHabits,
   updateHabit,
   upsertCheckin,
 } from "@/db/queries";
@@ -29,6 +31,7 @@ import {
   createHabitAction,
   incrementCheckinAction,
   incrementReminderCheckinAction,
+  moveHabitsAction,
   updateHabitAction,
 } from "./habits";
 
@@ -45,6 +48,8 @@ function makeHabit(overrides: Partial<Habit> = {}): Habit {
     unit: "times",
     category: null,
     tags: [],
+    positionX: 0,
+    positionY: 0,
     freezeBank: 0,
     createdAt: new Date(2020, 0, 1),
     archivedAt: null,
@@ -236,5 +241,70 @@ describe("updateHabitAction category and tags", () => {
       1,
       expect.objectContaining({ category: null })
     );
+  });
+});
+
+describe("moveHabitsAction", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(moveHabits).mockResolvedValue(undefined);
+  });
+
+  it("persists the canvas positions", async () => {
+    const result = await moveHabitsAction([
+      { id: "3", positionX: 0, positionY: 4 },
+      { id: "1", positionX: 2, positionY: 0 },
+    ]);
+
+    expect(result).toEqual({ ok: true, data: true });
+    expect(moveHabits).toHaveBeenCalledWith([
+      { id: 3, positionX: 0, positionY: 4 },
+      { id: 1, positionX: 2, positionY: 0 },
+    ]);
+  });
+
+  it("rejects non-numeric ids", async () => {
+    const result = await moveHabitsAction([
+      { id: "two", positionX: 0, positionY: 0 },
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(moveHabits).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate ids", async () => {
+    const result = await moveHabitsAction([
+      { id: "1", positionX: 0, positionY: 0 },
+      { id: "1", positionX: 1, positionY: 0 },
+    ]);
+
+    expect(result).toEqual({ ok: false, error: "Habit ids must be unique" });
+    expect(moveHabits).not.toHaveBeenCalled();
+  });
+
+  it("rejects two habits in the same cell", async () => {
+    const result = await moveHabitsAction([
+      { id: "1", positionX: 0, positionY: 0 },
+      { id: "2", positionX: 0, positionY: 0 },
+    ]);
+
+    expect(result).toEqual({ ok: false, error: "Habit cells must be unique" });
+    expect(moveHabits).not.toHaveBeenCalled();
+  });
+
+  it("rejects columns outside the four-column canvas", async () => {
+    const result = await moveHabitsAction([
+      { id: "1", positionX: 4, positionY: 0 },
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(moveHabits).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty list", async () => {
+    const result = await moveHabitsAction([]);
+
+    expect(result.ok).toBe(false);
+    expect(moveHabits).not.toHaveBeenCalled();
   });
 });

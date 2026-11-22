@@ -21,6 +21,7 @@
     "reminders:dev": "node --env-file-if-exists=.env --import tsx --watch scripts/send-reminders.ts"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
     "@hookform/resolvers": "^7.0.6",
     "auto-launch": "^5.0.6",
     "better-sqlite3": "^12.11.1",

@@ -88,6 +88,12 @@
   "habits.templates.category.learning": "Learning",
   "habits.templates.category.productivity": "Productivity",
 
+  "habits.dnd.instructions": "Press and hold a card to drag it into any grid cell. With a keyboard: space, arrow keys, then space.",
+  "habits.dnd.pickedUp": "Picked up the card \"{name}\".",
+  "habits.dnd.movedTo": "Moved \"{name}\" to row {row}, column {column}.",
+  "habits.dnd.cancelled": "Dragging \"{name}\" was cancelled.",
+  "habits.dnd.moveFailed": "Failed to save the habit position",
+
   "template.morning_run.name": "Morning run",
   "template.morning_run.description": "Run 5 km outdoors to start the day with energy.",
   "template.read_before_bed.name": "Reading before bed",

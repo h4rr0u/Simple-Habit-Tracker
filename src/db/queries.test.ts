@@ -34,6 +34,7 @@ import {
   listHabitCategories,
   listReminders,
   markReminderSent,
+  moveHabits,
   syncHabitFreezes,
   toggleCheckin,
   upsertCheckin,
@@ -117,6 +118,60 @@ describe("habit category and tags", () => {
     await archiveHabit(archived.id);
 
     await expect(listHabitCategories()).resolves.toEqual(["Health", "Work"]);
+  });
+});
+
+describe("habit grid positions", () => {
+  const base = {
+    description: null,
+    type: "binary" as const,
+    color: "#3b82f6",
+    icon: null,
+    schedule: { mode: "daily" } as never,
+    targetValue: null,
+    unit: null,
+    freezeBank: 0,
+  };
+
+  it("places new habits in the next free canvas cell", async () => {
+    const first = await createHabit({ ...base, name: "First" });
+    const second = await createHabit({ ...base, name: "Second" });
+    const third = await createHabit({ ...base, name: "Third" });
+    const fourth = await createHabit({ ...base, name: "Fourth" });
+    const fifth = await createHabit({ ...base, name: "Fifth" });
+
+    expect([first.positionX, first.positionY]).toEqual([0, 0]);
+    expect([second.positionX, second.positionY]).toEqual([1, 0]);
+    expect([third.positionX, third.positionY]).toEqual([2, 0]);
+    expect([fourth.positionX, fourth.positionY]).toEqual([3, 0]);
+    expect([fifth.positionX, fifth.positionY]).toEqual([0, 1]);
+  });
+
+  it("fills a hole in the last occupied row", async () => {
+    const first = await createHabit({ ...base, name: "First" });
+    await createHabit({ ...base, name: "Second" });
+    await moveHabits([{ id: first.id, positionX: 2, positionY: 0 }]);
+
+    const third = await createHabit({ ...base, name: "Third" });
+
+    expect([third.positionX, third.positionY]).toEqual([0, 0]);
+  });
+
+  it("persists positions and lists habits by row then column", async () => {
+    const first = await createHabit({ ...base, name: "First" });
+    await createHabit({ ...base, name: "Second" });
+    const third = await createHabit({ ...base, name: "Third" });
+
+    await moveHabits([
+      { id: third.id, positionX: 0, positionY: 2 },
+      { id: first.id, positionX: 2, positionY: 0 },
+    ]);
+
+    await expect(listHabits()).resolves.toMatchObject([
+      { name: "Second", positionX: 1, positionY: 0 },
+      { name: "First", positionX: 2, positionY: 0 },
+      { name: "Third", positionX: 0, positionY: 2 },
+    ]);
   });
 });
 

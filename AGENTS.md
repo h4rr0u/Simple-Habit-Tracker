@@ -166,3 +166,26 @@ drizzle/      # SQL migrations
   `template.<id>.description`, UI copy under `habits.templates.*` in
   `ru.json` / `en.json`. Tests: `src/lib/templates.test.ts` (unique ids, valid
   values/icons/schedules, translations present in both dictionaries).
+
+- **Grid Canvas (free drag & drop)** — The `/habits` grid is a free-form
+  canvas instead of a reordering list. `habits.positionX` (`integer`, 0-3) and
+  `habits.positionY` (`integer`, 0+) replace `sortOrder`; migration
+  `drizzle/0008_pretty_silhouette.sql` adds both columns and maps the old
+  linear order row-major (`sort_order % 4`, `sort_order / 4`), and
+  `drizzle/0009_thick_young_avengers.sql` drops `sort_order`. `listHabits()`
+  orders by `positionY` then `positionX`; `createHabit()` claims the first
+  free cell via `nextFreeCell()` inside an IMMEDIATE transaction. The UI uses
+  `@dnd-kit/core` only (no `@dnd-kit/sortable`): every card is a CSS grid item
+  pinned with `gridColumn: positionX + 1` / `gridRow: positionY + 1`, so
+  empty cells and empty rows persist. `DraggableHabitCard` keeps the 250 ms /
+  5 px long-press `PointerSensor` so a tap still toggles check-ins, and
+  ignores pointer-downs on buttons/links/inputs. On drop, `cellFromPoint()`
+  in `src/lib/habit-grid.ts` converts the card centre into a cell using the
+  computed column widths/row heights (extrapolating rows below the last one),
+  and `resolveHabitMove()` returns the minimal update set — one habit for an
+  empty cell, two for a swap on an occupied cell, so cards never overlap. The
+  client applies the move optimistically and calls `moveHabitsAction([{ id,
+  positionX, positionY }])`, which validates unique ids and unique cells,
+  updates everything in one transaction and revalidates `/habits`. Tests:
+  `src/lib/habit-grid.test.ts`, `src/db/queries.test.ts`,
+  `src/actions/habits.test.ts`.

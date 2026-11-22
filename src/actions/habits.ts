@@ -9,6 +9,7 @@ import {
   createHabit,
   getHabitById,
   incrementCheckin,
+  moveHabits,
   syncAllFreezes,
   syncHabitFreezes,
   toggleCheckin,
@@ -16,6 +17,7 @@ import {
   upsertCheckin,
 } from "@/db/queries";
 import { habitTypeEnum, type NewHabit } from "@/db/schema";
+import { HABIT_GRID_COLUMNS } from "@/lib/habit-grid";
 import type { Schedule } from "@/types/schedule";
 
 /**
@@ -103,6 +105,31 @@ const updateHabitSchema = createHabitSchema.partial().extend({
 
 const archiveHabitSchema = z.object({
   id: z.number().int().positive(),
+});
+
+/** One habit's new cell on the /habits grid canvas. */
+const habitPositionSchema = z.object({
+  id: z.string().regex(/^\d+$/, "Habit ids must be numeric"),
+  positionX: z.number().int().min(0).max(HABIT_GRID_COLUMNS - 1),
+  positionY: z.number().int().min(0),
+});
+
+const moveHabitsSchema = z.object({
+  positions: z
+    .array(habitPositionSchema)
+    .min(1, "At least one habit is required")
+    .refine(
+      (positions) =>
+        new Set(positions.map((position) => position.id)).size === positions.length,
+      { message: "Habit ids must be unique" }
+    )
+    .refine(
+      (positions) =>
+        new Set(
+          positions.map((position) => `${position.positionX}:${position.positionY}`)
+        ).size === positions.length,
+      { message: "Habit cells must be unique" }
+    ),
 });
 
 const toggleCheckinSchema = z.object({
@@ -234,6 +261,41 @@ export async function archiveHabitAction(
     }
     revalidateDashboard();
     return { ok: true, data: habit };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+/**
+ * Persists canvas positions for one move.
+ *
+ * `positions` holds the dragged habit's new cell and, when the drop lands on
+ * an occupied cell, the displaced habit's new cell (a swap). The update runs
+ * in one transaction in the query layer, and only /habits is revalidated
+ * because no other view shows the canvas layout.
+ */
+export async function moveHabitsAction(
+  positions: z.input<typeof habitPositionSchema>[]
+): Promise<ActionResult<true>> {
+  const parsed = moveHabitsSchema.safeParse({ positions });
+  if (!parsed.success) {
+    return { ok: false, error: firstIssueMessage(parsed.error) };
+  }
+
+  try {
+    await moveHabits(
+      parsed.data.positions.map(({ id, positionX, positionY }) => ({
+        id: Number(id),
+        positionX,
+        positionY,
+      }))
+    );
+    try {
+      revalidatePath("/habits");
+    } catch {
+      /* not running inside a Next.js request */
+    }
+    return { ok: true, data: true };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }

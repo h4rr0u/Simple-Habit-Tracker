@@ -536,7 +536,7 @@ async function main(): Promise<void> {
     { accruedThrough: string; paid: string[]; blocked: string[] }
   > = {};
 
-  for (const seed of HABITS) {
+  for (const [index, seed] of HABITS.entries()) {
     const createdAt = addDays(TODAY, -seed.createdDaysAgo);
     const [habit] = await db
       .insert(schema.habits)
@@ -550,6 +550,9 @@ async function main(): Promise<void> {
         targetValue: seed.targetValue ?? null,
         unit: seed.unit ?? null,
         freezeBank: seed.freezeBank,
+        // Lay the curated demo habits out row by row on the grid canvas.
+        positionX: index % 4,
+        positionY: Math.floor(index / 4),
         createdAt,
         archivedAt: null,
       })

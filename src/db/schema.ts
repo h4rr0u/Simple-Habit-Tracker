@@ -37,6 +37,10 @@ export const habits = sqliteTable(
     category: text("category"),
     /** JSON-serialized array of user-defined tags (nullable, defaults to []). */
     tags: text("tags", { mode: "json" }).$type<string[]>().default([]),
+    /** Column in the /habits grid canvas (0-3). */
+    positionX: integer("position_x").notNull().default(0),
+    /** Row in the /habits grid canvas (0, 1, 2...). */
+    positionY: integer("position_y").notNull().default(0),
     /** Number of available streak freezes. */
     freezeBank: integer("freeze_bank").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp" })

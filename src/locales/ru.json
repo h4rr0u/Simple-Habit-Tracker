@@ -88,6 +88,12 @@
   "habits.templates.category.learning": "Обучение",
   "habits.templates.category.productivity": "Продуктивность",
 
+  "habits.dnd.instructions": "Нажмите и удерживайте карточку, чтобы перетащить её в любую ячейку сетки. Для клавиатуры: пробел, стрелки, затем пробел.",
+  "habits.dnd.pickedUp": "Карточка «{name}» захвачена.",
+  "habits.dnd.movedTo": "Карточка «{name}» перемещена: ряд {row}, колонка {column}.",
+  "habits.dnd.cancelled": "Перетаскивание «{name}» отменено.",
+  "habits.dnd.moveFailed": "Не удалось сохранить положение привычки",
+
   "template.morning_run.name": "Утренняя пробежка",
   "template.morning_run.description": "Пробегите 5 км на свежем воздухе, чтобы зарядиться энергией.",
   "template.read_before_bed.name": "Чтение перед сном",
