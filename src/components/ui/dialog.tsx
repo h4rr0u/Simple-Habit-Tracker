@@ -12,6 +12,7 @@ import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/components/language-provider"
+import { DIALOG_SPRING } from "@/lib/motion"
 import { XIcon } from "lucide-react"
 
 /**
@@ -142,7 +143,7 @@ function DialogPanel({
   const isPresent = useIsPresent()
   const transition = reduceMotion
     ? { duration: 0 }
-    : { type: "spring" as const, stiffness: 340, damping: 30, mass: 0.8 }
+    : DIALOG_SPRING
   // Built as two separate objects on purpose: a `pointerEvents: undefined`
   // entry would still exist as a key, and Radix's `Slot` merges its own
   // `pointerEvents: "auto"` *under* this style, so a present-but-empty key

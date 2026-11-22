@@ -229,3 +229,19 @@ drizzle/      # SQL migrations
   updates everything in one transaction and revalidates `/habits`. Tests:
   `src/lib/habit-grid.test.ts`, `src/db/queries.test.ts`,
   `src/actions/habits.test.ts`.
+
+- **Canvas hardening & a11y** — `HabitsPageClient` keeps a `isMovingRef` /
+  `isMoving` pair: a drop that arrives while `moveHabitsAction` is still in
+  flight is ignored (the ref is checked synchronously, the state drives
+  `aria-busy` on the canvas), and the flag is cleared in a `finally` so two
+  overlapping moves can never persist stale or swapped coordinates.
+  `HabitCard` and `DraggableHabitCard` are `memo`-wrapped, and the dialog and
+  form callbacks are `useCallback`-stable, so hovering or dragging one tile no
+  longer re-renders the rest of the grid. Keyboard drags are detected from
+  `DragStartEvent.activatorEvent instanceof KeyboardEvent`: the lifted tile
+  (source + `DragOverlay` clone) gets `isKeyboardMoving` → `ring-2 ring-primary
+  ring-offset-2`, and the landing cell is announced through the `role="status"
+  aria-live="polite"` region using `habits.dnd.movedTo` (row/column are
+  1-based). All dialog panel springs use `DIALOG_SPRING` from
+  `src/lib/motion.ts` (`stiffness: 340, damping: 30, mass: 0.8`) — never
+  hardcode it in `src/components/ui/dialog.tsx`.

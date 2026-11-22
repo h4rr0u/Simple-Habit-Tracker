@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { Flame, Snowflake } from "lucide-react";
@@ -37,18 +37,24 @@ interface HabitCardProps {
   isDueToday: boolean;
   /** Suppresses hover/tap motion while dnd-kit owns the card transform. */
   isDragging?: boolean;
+  /**
+   * Draws a focus ring around the tile that a keyboard drag is currently
+   * moving, so the arrow-key target is visible without a pointer.
+   */
+  isKeyboardMoving?: boolean;
   /** Fades the card out — used for the source cell while its clone is dragged. */
   dimmed?: boolean;
   className?: string;
 }
 
-export function HabitCard({
+function HabitCardComponent({
   habit,
   today,
   todayCheckin,
   streak,
   isDueToday,
   isDragging = false,
+  isKeyboardMoving = false,
   dimmed = false,
   className,
 }: HabitCardProps) {
@@ -84,6 +90,8 @@ export function HabitCard({
       className={cn(
         "relative h-full rounded-xl transition-opacity duration-150",
         dimmed && "opacity-40",
+        isKeyboardMoving &&
+          "ring-2 ring-primary ring-offset-2 ring-offset-background",
         className
       )}
       whileHover={interactive ? { y: -4, scale: 1.01 } : undefined}
@@ -217,3 +225,11 @@ export function HabitCard({
     </motion.div>
   );
 }
+
+/**
+ * Memoized so canvas-wide state changes (filtering, dragging another tile,
+ * live-region updates) do not re-render every card. The grid keeps the object
+ * identity of untouched cards, so only the tile whose props actually changed
+ * re-renders.
+ */
+export const HabitCard = memo(HabitCardComponent);

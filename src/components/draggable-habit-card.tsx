@@ -1,6 +1,10 @@
 "use client";
 
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import {
+  memo,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useDraggable } from "@dnd-kit/core";
 
 import { HabitCard } from "@/components/habit-card";
@@ -30,13 +34,19 @@ interface DraggableHabitCardProps {
   todayCheckin?: Checkin;
   streak: number;
   isDueToday: boolean;
+  /** Renders the keyboard-move focus ring on the lifted tile. */
+  isKeyboardMoving?: boolean;
 }
 
 /** Elements that keep their own pointer behaviour; long-press must not drag. */
 const INTERACTIVE_SELECTOR =
   "button, a, input, textarea, select, [role='slider'], [role='checkbox'], [data-no-drag]";
 
-export function DraggableHabitCard({ id, ...card }: DraggableHabitCardProps) {
+function DraggableHabitCardComponent({
+  id,
+  isKeyboardMoving = false,
+  ...card
+}: DraggableHabitCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id,
   });
@@ -64,7 +74,18 @@ export function DraggableHabitCard({ id, ...card }: DraggableHabitCardProps) {
       {...listeners}
       onPointerDown={handlePointerDown}
     >
-      <HabitCard {...card} isDragging={false} dimmed={isDragging} />
+      <HabitCard
+        {...card}
+        isDragging={false}
+        dimmed={isDragging}
+        isKeyboardMoving={isKeyboardMoving}
+      />
     </div>
   );
 }
+
+/**
+ * Memoized: re-render the wrapper only when its own card data changes. dnd-kit
+ * state still reaches it because `useDraggable` subscribes to the DndContext.
+ */
+export const DraggableHabitCard = memo(DraggableHabitCardComponent);

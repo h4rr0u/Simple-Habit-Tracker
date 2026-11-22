@@ -15,6 +15,19 @@ export const CARD_SPRING: Transition = {
   damping: 20,
 };
 
+/**
+ * Spring for dialog panels (see `src/components/ui/dialog.tsx`).
+ *
+ * Slightly firmer than `CARD_SPRING`: a modal is a large surface, so a softer
+ * spring would visibly wobble before it settles.
+ */
+export const DIALOG_SPRING: Transition = {
+  type: "spring",
+  stiffness: 340,
+  damping: 30,
+  mass: 0.8,
+};
+
 /** Short fade + rise used when a route's content enters. */
 export const PAGE_TRANSITION: Transition = {
   duration: 0.25,
