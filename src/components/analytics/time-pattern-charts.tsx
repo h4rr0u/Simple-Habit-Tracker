@@ -42,7 +42,14 @@ const WEEKDAY_KEYS: TranslationKey[] = [
   "weekday.sat",
 ];
 
-/** Label + colour + time range for each part of the day. */
+/**
+ * Label + colour + time range for each part of the day.
+ *
+ * `color` holds a CSS custom property (`--period-*`), not a literal, so the
+ * donut slices follow the active theme. The legend chip draws its tint from
+ * `--period-*-bg` via the `.period-badge` class, which also sets `color` for
+ * the icon (lucide strokes with `currentColor`) — no inline colour style.
+ */
 const PERIOD_META: Record<
   TimeOfDayPeriod,
   { labelKey: TranslationKey; rangeKey: TranslationKey; color: string }
@@ -50,22 +57,22 @@ const PERIOD_META: Record<
   morning: {
     labelKey: "analytics.timePatterns.morning",
     rangeKey: "analytics.timePatterns.morningRange",
-    color: "#facc15",
+    color: "var(--period-morning)",
   },
   afternoon: {
     labelKey: "analytics.timePatterns.afternoon",
     rangeKey: "analytics.timePatterns.afternoonRange",
-    color: "#38bdf8",
+    color: "var(--period-afternoon)",
   },
   evening: {
     labelKey: "analytics.timePatterns.evening",
     rangeKey: "analytics.timePatterns.eveningRange",
-    color: "#fb923c",
+    color: "var(--period-evening)",
   },
   night: {
     labelKey: "analytics.timePatterns.night",
     rangeKey: "analytics.timePatterns.nightRange",
-    color: "#818cf8",
+    color: "var(--period-night)",
   },
 };
 
@@ -317,8 +324,8 @@ export function TimePatternCharts({ stats }: TimePatternChartsProps) {
                 className="flex items-center gap-2 rounded-lg border p-2"
               >
                 <span
-                  className="flex size-7 shrink-0 items-center justify-center rounded-md"
-                  style={{ backgroundColor: `${row.color}26`, color: row.color }}
+                  className="period-badge flex size-7 shrink-0 items-center justify-center rounded-md"
+                  data-period={row.period}
                 >
                   <Icon className="size-4" aria-hidden="true" />
                 </span>

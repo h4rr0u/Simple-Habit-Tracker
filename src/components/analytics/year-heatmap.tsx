@@ -76,11 +76,11 @@ export function YearHeatmap({ cells }: YearHeatmapProps) {
           className="size-3 rounded-[3px]"
           style={{ background: "var(--muted)" }}
         />
-        {HEAT_VARS.map((color) => (
+        {HEAT_VARS.map((heatVar) => (
           <span
-            key={color}
+            key={heatVar}
             className="size-3 rounded-[3px]"
-            style={{ background: color }}
+            style={{ background: heatVar }}
           />
         ))}
         <span>{t("analytics.heatmap.more")}</span>

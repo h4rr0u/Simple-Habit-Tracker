@@ -233,6 +233,49 @@ light) / 4.71 (rose dark), chart 4.81 (rose dark) / 5.17 (blue light). Все
   слишком близко к порогу с учётом различий gamut mapping между движками,
   поэтому L 0.543 (5.19).
 
+### Period-токены: времена суток (semantic, не accent-driven)
+
+`--period-morning`, `--period-afternoon`, `--period-evening`, `--period-night`
+и их `-bg`-варианты (`oklch(… / 15%)`) объявлены во всех десяти блоках
+(blue — `:root` / `.dark`, остальные — `[data-accent=…]` /
+`.dark[data-accent=…]`), но значения в них **одинаковые**: палитра
+семантическая (утро / день / вечер / ночь), акцент её не меняет. Повтор
+сохранён по тому же правилу, что и у primary: блок никогда не наследует
+чужое значение.
+
+- morning — тёплый янтарь: h 72, L 0.545 (light) / 0.86 (dark), C 0.116 / 0.16
+- afternoon — холодный небесно-синий: h 240, L 0.54 / 0.80, C 0.123 / 0.118
+- evening — закатный красно-оранжевый: h 38/55, L 0.545 / 0.80, C 0.178 / 0.13
+- night — глубокий индиго: h 285, L 0.495 / 0.82, C 0.17 / 0.093
+- chroma light-токенов ужата до gamut sRGB, чтобы фолбэк Lightning CSS
+  совпадал с тем, что посчитано в таблице.
+- Имена идут за union `TimeOfDayPeriod` (`afternoon`, а не `day`), чтобы CSS
+  и TypeScript не разъезжались.
+
+Применение: сегменты donut берут `fill` из `PERIOD_META[...].color`
+(`var(--period-*)`), а чип легенды — `.period-badge[data-period=…]` из
+`globals.css`, который задаёт `background-color: var(--period-*-bg)` и
+`color: var(--period-*)`; иконка lucide красится через `currentColor`, поэтому
+не нужен ни один inline-стиль. `grep 'style={{[^}]*color'` по
+`src/components/analytics` пуст; единственное исключение во всём проекте, где
+inline-цвет остаётся законно, — `habit.color` (цвет выбирает пользователь,
+он приходит из БД и токеном быть не может; `src/app/analytics/print/page.tsx`).
+
+Контраст снят с **собранного** CSS (sRGB-фолбэки Lightning CSS); фон чипа —
+тот же цвет при alpha 0.15, скомпонованный с карточкой в sRGB:
+
+| Период | Light: card / background | Light: иконка на чипе | Dark: card / background | Dark: иконка на чипе |
+| --- | --- | --- | --- | --- |
+| morning | 5.07 / 4.86 (`#996302`) | 4.17 | 11.74 / 12.26 (`#f7cd3a`) | 8.35 |
+| afternoon | 4.99 / 4.78 (`#0276ae`) | 4.05 | 9.81 / 10.25 (`#69caff`) | 7.23 |
+| evening | 5.36 / 5.14 (`#c13c01`) | 4.29 | 9.28 / 9.70 (`#fea668`) | 6.95 |
+| night | 6.53 / 6.26 (`#5c4cbc`) | 5.23 | 10.07 / 10.53 (`#bdbcff`) | 7.33 |
+
+Минимумы: 4.78:1 для цвета на `--background` (порог текста 4.5) и 4.05:1 для
+иконки на тонированном чипе (порог графики 3:1). Было: `#facc15` на белой
+карточке — 1.53:1, чип и иконка фактически невидимы. Печатный отчёт графиков
+не содержит, поэтому `@media print` period-токены не переопределяет.
+
 ## Feature history
 
 - **Report Export** — Added a CSV report route
@@ -490,3 +533,24 @@ light) / 4.71 (rose dark), chart 4.81 (rose dark) / 5.17 (blue light). Все
   and `PERIOD_META` were deliberately left alone (Sessions 5 / 4). Minimum
   contrast on `--card`: series 4.47:1 (emerald light), heat 3.85:1 (emerald
   light), gradients 4.81:1 (rose dark) — all above 3:1.
+
+- **Period-токены + запрет inline color в аналитике** — The time-of-day
+  palette moved from hex constants to CSS tokens. `src/app/globals.css` declares
+  `--period-morning/afternoon/evening/night` plus `-bg` (`oklch(… / 15%)`) in
+  all ten accent blocks; the values are identical everywhere because the
+  palette is semantic (parts of the day do not follow the accent) — they are
+  still repeated per block so no block can inherit a mismatched colour.
+  `PERIOD_META` in `src/components/analytics/time-pattern-charts.tsx` now stores
+  `var(--period-*)` and feeds `Cell fill` directly, so the donut recolors on a
+  theme switch with no re-render. The legend chip stopped using
+  `style={{ backgroundColor: \`${row.color}26\`, color: row.color }}` (which
+  AGENTS.md forbids) and became `.period-badge[data-period="…"]` in
+  `globals.css` — `background-color: var(--period-*-bg)` plus
+  `color: var(--period-*)`, with the lucide icon inheriting `currentColor`.
+  The old `#facc15` morning icon measured 1.53:1 on the light card and was
+  effectively invisible. Measured minimums (compiled CSS, sRGB): 4.78:1 for
+  the colour on `--background` and 4.05:1 for the icon on its tinted chip.
+  `grep 'style={{[^}]*color' src/components/analytics` is now empty;
+  `year-heatmap.tsx` legend map was renamed to `heatVar` in passing.
+  `SERIES`/`HEAT` and `TOOLTIP_STYLE` were left untouched (Sessions 3 / 5).
+  Numbers and the full table live above in «Period-токены: времена суток».

@@ -87,6 +87,20 @@
   --chart-heat-2: oklch(0.53 0.118 262.88);
   --chart-heat-3: oklch(0.46 0.161 262.88);
   --chart-heat-4: oklch(0.39 0.194 262.88);
+  /* Time-of-day palette (analytics "time patterns"). Semantic, NOT accent
+     driven: the four parts of the day keep their own hue in every accent.
+     Values are repeated in each accent block below for the same reason the
+     primary tokens are: a block must never inherit a mismatched colour.
+     >= 4.5:1 on --card and --background (light) / >= 9:1 (dark); -bg is the
+     same hue at 15% alpha for the legend chip behind the icon. */
+  --period-morning: oklch(0.545 0.116 72);
+  --period-morning-bg: oklch(0.545 0.116 72 / 15%);
+  --period-afternoon: oklch(0.54 0.123 240);
+  --period-afternoon-bg: oklch(0.54 0.123 240 / 15%);
+  --period-evening: oklch(0.545 0.178 38);
+  --period-evening-bg: oklch(0.545 0.178 38 / 15%);
+  --period-night: oklch(0.495 0.17 285);
+  --period-night-bg: oklch(0.495 0.17 285 / 15%);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -135,6 +149,15 @@
   --chart-heat-2: oklch(0.7 0.118 259.815);
   --chart-heat-3: oklch(0.78 0.111 259.815);
   --chart-heat-4: oklch(0.86 0.069 259.815);
+  /* Same semantic hues, lifted to pastel lightness for the dark card. */
+  --period-morning: oklch(0.86 0.16 92);
+  --period-morning-bg: oklch(0.86 0.16 92 / 15%);
+  --period-afternoon: oklch(0.8 0.118 235);
+  --period-afternoon-bg: oklch(0.8 0.118 235 / 15%);
+  --period-evening: oklch(0.8 0.13 55);
+  --period-evening-bg: oklch(0.8 0.13 55 / 15%);
+  --period-night: oklch(0.82 0.093 285);
+  --period-night-bg: oklch(0.82 0.093 285 / 15%);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.623 0.214 259.815);
@@ -169,6 +192,12 @@
                           while lightness descends (light) / ascends (dark)
      --chart-heat-1..4    four-step one-tone ramp, level 4 strongest; same
                           lightness direction as the series ramp
+   Semantic tokens (NOT accent-driven, identical in every block by design —
+   the four parts of the day keep their own hue whichever accent is active):
+     --period-morning / -afternoon / -evening / -night
+                          time-of-day palette used by the analytics legend and
+                          the donut, >= 4.5:1 on --card/--background
+     --period-*-bg        same hue at 15% alpha for the legend chip
    Measured ratios live in AGENTS.md ("Цветовые токены: таблица контрастов"). */
 
 [data-accent="violet"] {
@@ -195,6 +224,14 @@
   --chart-heat-2: oklch(0.53 0.155 293.009);
   --chart-heat-3: oklch(0.46 0.211 293.009);
   --chart-heat-4: oklch(0.39 0.216 293.009);
+  --period-morning: oklch(0.545 0.116 72);
+  --period-morning-bg: oklch(0.545 0.116 72 / 15%);
+  --period-afternoon: oklch(0.54 0.123 240);
+  --period-afternoon-bg: oklch(0.54 0.123 240 / 15%);
+  --period-evening: oklch(0.545 0.178 38);
+  --period-evening-bg: oklch(0.545 0.178 38 / 15%);
+  --period-night: oklch(0.495 0.17 285);
+  --period-night-bg: oklch(0.495 0.17 285 / 15%);
   --sidebar-primary: oklch(0.541 0.281 293.009);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.943 0.034 292.452);
@@ -226,6 +263,14 @@
   --chart-heat-2: oklch(0.7 0.138 292.717);
   --chart-heat-3: oklch(0.78 0.122 292.717);
   --chart-heat-4: oklch(0.86 0.075 292.717);
+  --period-morning: oklch(0.86 0.16 92);
+  --period-morning-bg: oklch(0.86 0.16 92 / 15%);
+  --period-afternoon: oklch(0.8 0.118 235);
+  --period-afternoon-bg: oklch(0.8 0.118 235 / 15%);
+  --period-evening: oklch(0.8 0.13 55);
+  --period-evening-bg: oklch(0.8 0.13 55 / 15%);
+  --period-night: oklch(0.82 0.093 285);
+  --period-night-bg: oklch(0.82 0.093 285 / 15%);
   --sidebar-primary: oklch(0.64 0.25 292.717);
   --sidebar-primary-foreground: oklch(0.18 0 0);
   --sidebar-accent: oklch(0.38 0.12 293.745);
@@ -258,6 +303,14 @@
   --chart-heat-2: oklch(0.53 0.08 163.225);
   --chart-heat-3: oklch(0.46 0.099 163.225);
   --chart-heat-4: oklch(0.39 0.084 163.225);
+  --period-morning: oklch(0.545 0.116 72);
+  --period-morning-bg: oklch(0.545 0.116 72 / 15%);
+  --period-afternoon: oklch(0.54 0.123 240);
+  --period-afternoon-bg: oklch(0.54 0.123 240 / 15%);
+  --period-evening: oklch(0.545 0.178 38);
+  --period-evening-bg: oklch(0.545 0.178 38 / 15%);
+  --period-night: oklch(0.495 0.17 285);
+  --period-night-bg: oklch(0.495 0.17 285 / 15%);
   --sidebar-primary: oklch(0.5 0.145 163.225);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.95 0.052 163.051);
@@ -289,6 +342,14 @@
   --chart-heat-2: oklch(0.7 0.094 162.48);
   --chart-heat-3: oklch(0.78 0.119 162.48);
   --chart-heat-4: oklch(0.86 0.145 162.48);
+  --period-morning: oklch(0.86 0.16 92);
+  --period-morning-bg: oklch(0.86 0.16 92 / 15%);
+  --period-afternoon: oklch(0.8 0.118 235);
+  --period-afternoon-bg: oklch(0.8 0.118 235 / 15%);
+  --period-evening: oklch(0.8 0.13 55);
+  --period-evening-bg: oklch(0.8 0.13 55 / 15%);
+  --period-night: oklch(0.82 0.093 285);
+  --period-night-bg: oklch(0.82 0.093 285 / 15%);
   --sidebar-primary: oklch(0.696 0.17 162.48);
   --sidebar-primary-foreground: oklch(0.18 0 0);
   --sidebar-accent: oklch(0.38 0.08 168.94);
@@ -321,6 +382,14 @@
   --chart-heat-2: oklch(0.53 0.139 17.585);
   --chart-heat-3: oklch(0.46 0.184 17.585);
   --chart-heat-4: oklch(0.39 0.156 17.585);
+  --period-morning: oklch(0.545 0.116 72);
+  --period-morning-bg: oklch(0.545 0.116 72 / 15%);
+  --period-afternoon: oklch(0.54 0.123 240);
+  --period-afternoon-bg: oklch(0.54 0.123 240 / 15%);
+  --period-evening: oklch(0.545 0.178 38);
+  --period-evening-bg: oklch(0.545 0.178 38 / 15%);
+  --period-night: oklch(0.495 0.17 285);
+  --period-night-bg: oklch(0.495 0.17 285 / 15%);
   --sidebar-primary: oklch(0.48 0.253 17.585);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.941 0.03 12.58);
@@ -352,6 +421,14 @@
   --chart-heat-2: oklch(0.7 0.135 16.439);
   --chart-heat-3: oklch(0.78 0.129 16.439);
   --chart-heat-4: oklch(0.86 0.075 16.439);
+  --period-morning: oklch(0.86 0.16 92);
+  --period-morning-bg: oklch(0.86 0.16 92 / 15%);
+  --period-afternoon: oklch(0.8 0.118 235);
+  --period-afternoon-bg: oklch(0.8 0.118 235 / 15%);
+  --period-evening: oklch(0.8 0.13 55);
+  --period-evening-bg: oklch(0.8 0.13 55 / 15%);
+  --period-night: oklch(0.82 0.093 285);
+  --period-night-bg: oklch(0.82 0.093 285 / 15%);
   --sidebar-primary: oklch(0.645 0.246 16.439);
   --sidebar-primary-foreground: oklch(0.18 0 0);
   --sidebar-accent: oklch(0.38 0.11 15.722);
@@ -383,6 +460,14 @@
   --chart-heat-2: oklch(0.53 0.107 38.402);
   --chart-heat-3: oklch(0.46 0.146 38.402);
   --chart-heat-4: oklch(0.39 0.126 38.402);
+  --period-morning: oklch(0.545 0.116 72);
+  --period-morning-bg: oklch(0.545 0.116 72 / 15%);
+  --period-afternoon: oklch(0.54 0.123 240);
+  --period-afternoon-bg: oklch(0.54 0.123 240 / 15%);
+  --period-evening: oklch(0.545 0.178 38);
+  --period-evening-bg: oklch(0.545 0.178 38 / 15%);
+  --period-night: oklch(0.495 0.17 285);
+  --period-night-bg: oklch(0.495 0.17 285 / 15%);
   --sidebar-primary: oklch(0.543 0.195 38.402);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.954 0.038 75.164);
@@ -414,6 +499,14 @@
   --chart-heat-2: oklch(0.7 0.117 47.604);
   --chart-heat-3: oklch(0.78 0.139 47.604);
   --chart-heat-4: oklch(0.86 0.082 47.604);
+  --period-morning: oklch(0.86 0.16 92);
+  --period-morning-bg: oklch(0.86 0.16 92 / 15%);
+  --period-afternoon: oklch(0.8 0.118 235);
+  --period-afternoon-bg: oklch(0.8 0.118 235 / 15%);
+  --period-evening: oklch(0.8 0.13 55);
+  --period-evening-bg: oklch(0.8 0.13 55 / 15%);
+  --period-night: oklch(0.82 0.093 285);
+  --period-night-bg: oklch(0.82 0.093 285 / 15%);
   --sidebar-primary: oklch(0.705 0.213 47.604);
   --sidebar-primary-foreground: oklch(0.18 0 0);
   --sidebar-accent: oklch(0.408 0.123 38.172);
@@ -447,6 +540,32 @@
 
 .accent-swatch-rose {
   background-color: oklch(0.48 0.253 17.585);
+}
+
+/* ---------------------------- period badges --------------------------- */
+/* Legend chip of the "time of day" donut. Same idea as the accent swatches:
+   plain CSS classes, never inline styles. The icon inherits `color` through
+   currentColor, and the tint behind it is the matching -bg token (same hue at
+   15% alpha), so both survive a theme switch without JS. */
+
+.period-badge[data-period="morning"] {
+  background-color: var(--period-morning-bg);
+  color: var(--period-morning);
+}
+
+.period-badge[data-period="afternoon"] {
+  background-color: var(--period-afternoon-bg);
+  color: var(--period-afternoon);
+}
+
+.period-badge[data-period="evening"] {
+  background-color: var(--period-evening-bg);
+  color: var(--period-evening);
+}
+
+.period-badge[data-period="night"] {
+  background-color: var(--period-night-bg);
+  color: var(--period-night);
 }
 
 /* ------------------------------ density ------------------------------- */
