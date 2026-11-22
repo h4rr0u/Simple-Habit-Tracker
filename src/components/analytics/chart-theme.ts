@@ -7,24 +7,33 @@ export const CHART_COLORS = {
 } as const;
 
 /**
- * Presentation palette for multi-series charts. These are fixed hex values
- * (rather than theme tokens) so screenshots stay vivid in the dark theme while
- * remaining readable in light mode.
+ * Categorical palette for multi-series charts. These are CSS variables, not
+ * hex values, so every accent recalculates the ramp in the browser without a
+ * re-render (SVG `fill` / `stroke` accept `var()`).
  */
-export const SERIES_COLORS = [
-  "#38bdf8", // sky
-  "#818cf8", // indigo
-  "#a78bfa", // violet
-  "#f472b6", // pink
-  "#fb923c", // orange
-  "#facc15", // yellow
-  "#34d399", // emerald
+export const SERIES_VARS = [
+  "var(--chart-series-1)",
+  "var(--chart-series-2)",
+  "var(--chart-series-3)",
+  "var(--chart-series-4)",
+  "var(--chart-series-5)",
+  "var(--chart-series-6)",
+  "var(--chart-series-7)",
 ] as const;
 
-/** Multi-hue ramp for the year heatmap: level 1 (low) → 4 (full). */
-export const HEAT_COLORS = ["#1d4ed8", "#0ea5e9", "#a855f7", "#f59e0b"] as const;
+/** One-tone ramp for the year heatmap: level 1 (low) → 4 (full). */
+export const HEAT_VARS = [
+  "var(--chart-heat-1)",
+  "var(--chart-heat-2)",
+  "var(--chart-heat-3)",
+  "var(--chart-heat-4)",
+] as const;
 
-export const AXIS_TICK = { fontSize: 11, fill: "var(--muted-foreground)" } as const;
+/**
+ * Axis tick text. The size is in rem so `data-density="compact"`
+ * (html font-size 93.75%) shrinks the labels together with the rest of the UI.
+ */
+export const AXIS_TICK = { fontSize: "0.6875rem", fill: "var(--muted-foreground)" } as const;
 
 export const TOOLTIP_STYLE = {
   backgroundColor: "var(--popover)",

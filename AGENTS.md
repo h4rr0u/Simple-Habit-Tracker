@@ -169,6 +169,49 @@ Hover дефолтной кнопки (`primary-hover`, тот же `primary-for
 rose 3.60; в светлой теме emerald 3.51, rose 4.32. `ring-ring/50` —
 2.01–2.72:1 во всех десяти комбинациях.
 
+### Chart-токены: series / heat / градиенты
+
+Все палитры графиков выводятся из акцента и объявлены в тех же accent-блоках
+(blue — в `:root` / `.dark`). Компоненты больше не держат hex:
+`src/components/analytics/chart-theme.ts` экспортирует `SERIES_VARS` и
+`HEAT_VARS`, то есть только `var(--…)`. Смена `data-accent` перекрашивает SVG
+без JS-чтения цвета и без ре-рендера.
+
+- `--chart-series-1..7` — категориальная ramp: hue акцента −30°…+30° шагом
+  10°, светлота монотонна 0.56 → 0.44 (light) и 0.66 → 0.78 (dark).
+- `--chart-heat-1..4` — однотональная ramp: L 0.60 → 0.39 (light) /
+  0.62 → 0.86 (dark). Уровень 4 всегда визуально «сильнее» уровня 1, chroma
+  подобрана под gamut sRGB.
+- `--chart-1..3` — стопы градиентов (`completion-line`, `average-radial`,
+  dashboard-ring). `chart-1` по-прежнему равен `--primary`; `chart-2`/`chart-3`
+  на 0.07/0.14 L темнее в light и на столько же светлее в dark, поэтому
+  градиент монотонно темнеет (light) или светлеет (dark) к концу.
+- `AXIS_TICK.fontSize` — `0.6875rem` вместо `11px`, поэтому при
+  `data-density="compact"` (`html { font-size: 93.75% }`) подписи осей
+  уменьшаются вместе с интерфейсом.
+
+Контраст к `--card` (`#ffffff` / `#171717`), минимум…максимум по токенам
+группы; числа сняты с **собранного** CSS (sRGB-фолбэки Lightning CSS):
+
+| Акцент | Тема | series (7) | heat (4) | chart-1..3 |
+| --- | --- | --- | --- | --- |
+| blue | light | 4.53–8.43 | 3.97–10.14 | 5.17–9.47 |
+| blue | dark | 5.94–8.69 | 4.91–11.76 | 4.83–7.82 |
+| violet | light | 4.90–8.75 | 4.06–10.85 | 5.89–10.37 |
+| violet | dark | 5.61–8.24 | 4.75–11.56 | 4.83–8.04 |
+| emerald | light | 4.47–7.50 | 3.85–9.15 | 5.66–10.51 |
+| emerald | dark | 6.02–9.49 | 5.07–12.37 | 7.18–10.71 |
+| rose | light | 5.23–8.19 | 4.12–10.47 | 6.99–12.60 |
+| rose | dark | 5.22–8.60 | 4.71–11.39 | 4.81–8.00 |
+| orange | light | 5.07–7.94 | 4.07–10.15 | 5.41–9.63 |
+| orange | dark | 5.31–8.80 | 4.77–11.45 | 6.36–10.16 |
+
+Минимумы: series 4.47 (emerald light) / 5.22 (rose dark), heat 3.85 (emerald
+light) / 4.71 (rose dark), chart 4.81 (rose dark) / 5.17 (blue light). Все
+палитры — графика, не текст; порог 3:1 выполнен с запасом. Печатный отчёт
+графиков не содержит, поэтому `@media print` токены series/heat не
+переопределяет.
+
 **Решения по ходу сессии**
 
 - Белый текст в светлой теме оставлен, но `--primary` у emerald (0.596 → 0.50),
@@ -431,3 +474,19 @@ rose 3.60; в светлой теме emerald 3.51, rose 4.32. `ring-ring/50` �
   Every text pair clears 4.5:1; the grid-line row is a document rule, not a UI
   control, and deliberately keeps the existing print color so light-theme
   output did not regress.
+
+- **Chart-токены: series/heat, монотонность, accent-driven** — Recharts
+  palettes are theme-driven instead of fixed hex. `src/app/globals.css` gained
+  `--chart-series-1..7` (accent hue swept −30°…+30° with monotone lightness
+  0.56 → 0.44 in light, 0.66 → 0.78 in dark) and `--chart-heat-1..4` (one-tone
+  ramp 0.60 → 0.39 light, 0.62 → 0.86 dark) in all ten accent blocks, and
+  `--chart-1/2/3` were re-stepped to 0.07 / 0.14 L darker in light and lighter
+  in dark so the completion/average/dashboard gradients darken (light) or
+  lighten (dark) monotonically. `chart-theme.ts` replaced `SERIES_COLORS` /
+  `HEAT_COLORS` with `SERIES_VARS` / `HEAT_VARS` (pure `var(--…)` strings, no
+  `any`), so `weekday-bar-chart.tsx` and `year-heatmap.tsx` recolor on accent
+  switch with no re-render; `AXIS_TICK.fontSize` went from `11` (px) to
+  `"0.6875rem"` so `data-density="compact"` scales axis labels. `TOOLTIP_STYLE`
+  and `PERIOD_META` were deliberately left alone (Sessions 5 / 4). Minimum
+  contrast on `--card`: series 4.47:1 (emerald light), heat 3.85:1 (emerald
+  light), gradients 4.81:1 (rose dark) — all above 3:1.

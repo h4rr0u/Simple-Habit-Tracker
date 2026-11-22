@@ -15,7 +15,7 @@ import { useReducedMotion } from "framer-motion";
 import { useLanguage, type TranslationKey } from "@/components/language-provider";
 import type { WeekdayCompletionPoint } from "@/types/analytics";
 import { ChartEmpty } from "./chart-empty";
-import { AXIS_TICK, CHART_COLORS, SERIES_COLORS, TOOLTIP_STYLE } from "./chart-theme";
+import { AXIS_TICK, CHART_COLORS, SERIES_VARS, TOOLTIP_STYLE } from "./chart-theme";
 
 /** Completion rate aggregated by weekday ("I slip on Wednesdays"). */
 
@@ -92,7 +92,7 @@ export function WeekdayBarChart({ weekdays, hasData }: WeekdayBarChartProps) {
             animationEasing="ease-out"
           >
             {rows.map((row, index) => (
-              <Cell key={row.label} fill={SERIES_COLORS[index]} />
+              <Cell key={row.label} fill={SERIES_VARS[index]} />
             ))}
           </Bar>
         </BarChart>

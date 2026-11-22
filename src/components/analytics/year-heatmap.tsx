@@ -4,7 +4,7 @@ import { useMemo } from "react";
 
 import { useLanguage } from "@/components/language-provider";
 import type { YearHeatCell } from "@/types/analytics";
-import { HEAT_COLORS } from "./chart-theme";
+import { HEAT_VARS } from "./chart-theme";
 
 /**
  * 365-day heatmap: colour intensity = share of completed habits for the day.
@@ -62,7 +62,7 @@ export function YearHeatmap({ cells }: YearHeatmapProps) {
                         ? "transparent"
                         : level === 0
                           ? "var(--muted)"
-                          : HEAT_COLORS[level - 1],
+                          : HEAT_VARS[level - 1],
                   }}
                 />
               );
@@ -76,7 +76,7 @@ export function YearHeatmap({ cells }: YearHeatmapProps) {
           className="size-3 rounded-[3px]"
           style={{ background: "var(--muted)" }}
         />
-        {HEAT_COLORS.map((color) => (
+        {HEAT_VARS.map((color) => (
           <span
             key={color}
             className="size-3 rounded-[3px]"
