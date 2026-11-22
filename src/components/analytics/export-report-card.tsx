@@ -46,7 +46,7 @@ export function ExportReportCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FileText className="size-5 text-primary" />
+          <FileText className="size-5 text-primary-text" />
           {t("analytics.export.title")}
         </CardTitle>
         <CardDescription>

@@ -107,7 +107,7 @@ function SupportCard({ donationUrl }: { donationUrl: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Heart className="size-5 text-primary" />
+          <Heart className="size-5 text-primary-text" />
           {t("settings.support.title")}
         </CardTitle>
         <CardDescription>{t("settings.support.description")}</CardDescription>
@@ -151,7 +151,7 @@ function TelegramCard({ chatId }: { chatId: number | null }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Bot className="size-5 text-primary" />
+          <Bot className="size-5 text-primary-text" />
           {t("settings.telegram.title")}
         </CardTitle>
         <CardDescription>{t("settings.telegram.description")}</CardDescription>

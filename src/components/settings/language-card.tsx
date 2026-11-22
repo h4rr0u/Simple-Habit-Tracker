@@ -35,7 +35,7 @@ export function LanguageCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Languages className="size-5 text-primary" />
+          <Languages className="size-5 text-primary-text" />
           {t("settings.language.title")}
         </CardTitle>
         <CardDescription>{t("settings.language.description")}</CardDescription>

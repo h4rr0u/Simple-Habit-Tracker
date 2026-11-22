@@ -83,6 +83,113 @@ drizzle/      # SQL migrations
 - Server-rendered exports cannot read localStorage: pass `?lang=ru|en` and use
   `src/lib/report-i18n.ts`.
 
+## Цветовые токены: таблица контрастов (WCAG)
+
+Основные пары «акцент × тема» проверены по WCAG 2.1. Числа сняты с
+**собранного** CSS: Lightning CSS конвертирует каждый `oklch()` в sRGB-фолбэк,
+и именно этот `#rrggbb` (после gamut mapping в гамат дисплея) видит браузер —
+поэтому таблица не зависит от того, как конкретный движок клиппит цвет.
+Порог: **≥ 4.5:1** для текста, **≥ 3:1** для нетекстового индикатора (ring).
+
+Токены `src/app/globals.css`:
+
+| Токен | Назначение | Light | Dark |
+| --- | --- | --- | --- |
+| `--primary` | брендовая поверхность | L 0.48–0.60 | L 0.62–0.75 |
+| `--primary-foreground` | текст/иконка **на** `--primary` | `oklch(0.985 0 0)` | `oklch(0.18 0 0)` |
+| `--primary-hover` | hover дефолтной кнопки | темнее primary (L −0.05) | светлее primary (L +0.045) |
+| `--primary-text` | `--primary` **как текст** на card/background | L 0.43–0.45 | L 0.75–0.78 |
+| `--ring` | focus ring (всегда без альфы) | = `--primary` | = `--primary` |
+
+Правила, которые нельзя нарушать:
+
+- В **каждом** accent-блоке задавать все пять значений явно. Blue — исключение:
+  он живёт в `:root` / `.dark` и не имеет `[data-accent="blue"]`. Каждый
+  `.dark[data-accent="…"]` обязан переопределять `--primary-foreground` и
+  `--sidebar-primary-foreground` (тёмный текст) — наследование белого из
+  `.dark` на светлый пастельный `--primary` даёт 2.4–3.8:1.
+- `--primary-hover` всегда **увеличивает** контраст с `--primary-foreground`:
+  в светлой теме hover темнее, в тёмной — светлее. Старый `hover:bg-primary/80`
+  осветлял кнопку и ронял emerald до ~2.8:1.
+- `--primary` как текст использовать нельзя — только `--primary-text`.
+  Декоративные иконки в заголовках карточек тоже переведены на
+  `--primary-text`, чтобы все акценты выглядели одинаково.
+- focus ring — `focus-visible:ring-ring` (без `/50`): полупрозрачный ring давал
+  1.8–2.7:1. Базовый `* { @apply … outline-ring }` тоже без альфы.
+- `--chart-1` и `--sidebar-primary` / `--sidebar-ring` держатся равными
+  `--primary` своего блока — так контраст гарантирован и для графика, и для
+  логотипа в сайдбаре.
+
+`primary-foreground` на `primary` (текст ≥ 4.5):
+
+| Акцент | Light | Dark |
+| --- | --- | --- |
+| blue | 4.95:1 (`#fafafa` / `#2563eb`) | 5.05:1 (`#121212` / `#3080ff`) |
+| violet | 5.65:1 (`#fafafa` / `#7f22fe`) | 5.05:1 (`#121212` / `#9567ff`) |
+| emerald | 5.42:1 (`#fafafa` / `#007651`) | 7.51:1 (`#121212` / `#00bb7f`) |
+| orange | 5.19:1 (`#fafafa` / `#c23900`) | 6.64:1 (`#121212` / `#fe6e00`) |
+| rose | 6.69:1 (`#fafafa` / `#b5002f`) | 5.02:1 (`#121212` / `#ff2357`) |
+
+Hover дефолтной кнопки (`primary-hover`, тот же `primary-foreground`):
+
+| Акцент | Light | Dark |
+| --- | --- | --- |
+| blue | 6.20:1 (`#1652d9`) | 5.99:1 (`#4990ff`) |
+| violet | 6.93:1 (`#7200ea`) | 6.18:1 (`#a07eff`) |
+| emerald | 6.65:1 (`#006744`) | 8.76:1 (`#00ca8b`) |
+| orange | 6.40:1 (`#ac2e00`) | 7.57:1 (`#ff822e`) |
+| rose | 8.18:1 (`#9d0025`) | 5.90:1 (`#ff506b`) |
+
+`primary-text` на `--card` / `--background` (card / bg):
+
+| Акцент | Light | Dark |
+| --- | --- | --- |
+| blue | 7.83 / 7.50 (`#1448bc`) | 8.04 / 8.88 (`#84aff4`) |
+| violet | 8.52 / 8.17 (`#6311ca`) | 7.79 / 8.61 (`#b19ef9`) |
+| emerald | 7.24 / 6.93 (`#006442`) | 8.47 / 9.35 (`#66c499`) |
+| orange | 8.36 / 8.01 (`#922700`) | 8.60 / 9.49 (`#fb9c6b`) |
+| rose | 8.67 / 8.30 (`#9b0027`) | 7.62 / 8.42 (`#f58a91`) |
+
+`--ring` против `--background` / `--card` (индикатор ≥ 3):
+
+| Акцент | Light bg / card | Dark bg / card |
+| --- | --- | --- |
+| blue | 4.95 / 5.17 | 5.33 / 4.83 |
+| violet | 5.65 / 5.89 | 5.34 / 4.83 |
+| emerald | 5.42 / 5.66 | 7.93 / 7.18 |
+| orange | 5.19 / 5.41 | 7.02 / 6.36 |
+| rose | 6.69 / 6.99 | 5.31 / 4.81 |
+
+Минимум по всем десяти комбинациям: текст на primary 4.95, hover 5.90,
+`primary-text` 6.93, ring 4.81. Свачи в настройках повторяют light-`--primary`,
+белая галочка на них: 5.17–6.99.
+
+Что было до правок (аудит): `primary-foreground` = `oklch(0.985 0 0)` на
+тёмных primary давал blue 3.63, violet 4.21, emerald 2.36, orange 2.88,
+rose 3.60; в светлой теме emerald 3.51, rose 4.32. `ring-ring/50` —
+2.01–2.72:1 во всех десяти комбинациях.
+
+**Решения по ходу сессии**
+
+- Белый текст в светлой теме оставлен, но `--primary` у emerald (0.596 → 0.50),
+  rose (0.586 → 0.48) и orange (0.553 → 0.543) притемнён: это дешевле по
+  бренду, чем тёмный текст на зелёной кнопке, и заодно поднимает `--ring`.
+  В тёмной теме, наоборот, primary остались пастельными, поэтому текст на
+  них — `oklch(0.18 0 0)`.
+- В тёмной теме `--primary-text` **светлее** `--primary` (L 0.75–0.78), а не
+  темнее, как предполагал бриф: тёмный текст на `--card` (`oklch(0.205 0 0)`)
+  не набирает 4.5 ни при каком `--primary`. Брифовое «L ≤ 0.55 в dark» здесь
+  дало бы 1.6–2.9:1.
+- Введены два новых токена (`--primary-hover`, `--primary-text`) вместо
+  переиспользования `--primary` с альфой: альфа-модификаторы не проходят
+  контраст в принципе и не выводятся из темы.
+- Тёмный violet `--primary` поднят с L 0.606 до 0.64 (белый текст был 4.21 на
+  хвосте допустимого); `--chart-1`, `--sidebar-primary`, `--ring` в том же
+  блоке идут за ним.
+- Orange light проверялся с запасом: при L 0.553 белый текст давал 4.98 —
+  слишком близко к порогу с учётом различий gamut mapping между движками,
+  поэтому L 0.543 (5.19).
+
 ## Feature history
 
 - **Report Export** — Added a CSV report route
@@ -264,3 +371,26 @@ drizzle/      # SQL migrations
   consume those variables, and the swatch dots use plain CSS classes
   (`accent-swatch-*`) — never inline color styles. Copy lives under
   `settings.appearance.*` in `ru.json` / `en.json`.
+
+- **A11y: primary contrast** — All five accents × two themes were audited
+  against WCAG 2.1 (OKLCH → sRGB → relative luminance; tables above). Two new
+  tokens, `--primary-hover` and `--primary-text`, were added to `@theme inline`
+  and to all ten accent blocks (blue lives in `:root` / `.dark`). Dark themes
+  now set `--primary-foreground: oklch(0.18 0 0)` (and the matching
+  `--sidebar-primary-foreground`) instead of inheriting white, because every
+  dark `--primary` is a light pastel (2.36–3.63:1 before). Light emerald, rose
+  and orange keep white text but their `--primary` was darkened to L 0.50 /
+  0.48 / 0.543 (orange originally cleared the bar at 4.98, but the margin was
+  too thin next to browser differences in gamut mapping). Every light accent
+  block now also declares `--sidebar-primary-foreground`, so the sidebar logo
+  does not depend on what `:root` happens to hold.
+  `button.tsx` default hover is now `hover:bg-primary-hover` (was
+  `bg-primary/80`, which lightened the button), `variant="link"` uses
+  `text-primary-text`, and every `focus-visible:ring-ring/50` became
+  `focus-visible:ring-ring` — button, checkbox, calendar day, input, select,
+  switch, tabs, field, template gallery and the accent swatch buttons; the base
+  `* { @apply outline-ring }` lost its `/50` too. Card-header accent icons
+  (`appearance-card`, `settings-client` ×2, `system-card`, `data-card`,
+  `language-card`, `export-report-card`, template gallery) moved from
+  `text-primary` to `text-primary-text` so they meet 4.5:1 as well. No component
+  API changed: `text-primary` is not a variant or prop, only a class string.

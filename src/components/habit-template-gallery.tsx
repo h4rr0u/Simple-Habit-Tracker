@@ -59,7 +59,7 @@ export function HabitTemplateGallery({
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="size-4 text-primary" />
+            <Sparkles className="size-4 text-primary-text" />
             {t("habits.templates.title")}
           </DialogTitle>
           <DialogDescription>
@@ -113,7 +113,7 @@ export function HabitTemplateGallery({
                   }}
                   whileHover={reduceMotion ? undefined : { y: -2 }}
                   whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-                  className="group flex h-full flex-col gap-2 rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/60 hover:bg-muted/50 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  className="group flex h-full flex-col gap-2 rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/60 hover:bg-muted/50 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <div className="flex items-start gap-3">
                     <span

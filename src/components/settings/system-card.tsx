@@ -108,7 +108,7 @@ export function SystemCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Monitor className="size-5 text-primary" />
+          <Monitor className="size-5 text-primary-text" />
           {t("settings.system.title")}
         </CardTitle>
         <CardDescription>{t("settings.system.description")}</CardDescription>

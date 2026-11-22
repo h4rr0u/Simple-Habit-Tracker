@@ -103,7 +103,7 @@ export function AppearanceCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Palette className="size-5 text-primary" />
+          <Palette className="size-5 text-primary-text" />
           {t("settings.appearance.title")}
         </CardTitle>
         <CardDescription>{t("settings.appearance.description")}</CardDescription>
@@ -149,7 +149,7 @@ export function AppearanceCard() {
                   title={label}
                   className={cn(
                     "relative flex size-10 items-center justify-center rounded-full transition-transform hover:scale-105",
-                    "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+                    "focus-visible:ring-3 focus-visible:ring-ring focus-visible:outline-none",
                     active ? "ring-2 ring-ring" : "ring-1 ring-border"
                   )}
                 >

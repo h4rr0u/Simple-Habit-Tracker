@@ -89,7 +89,7 @@ export function DataCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Database className="size-5 text-primary" />
+          <Database className="size-5 text-primary-text" />
           {t("settings.data.title")}
         </CardTitle>
         <CardDescription>{t("settings.data.description")}</CardDescription>
