@@ -33,6 +33,10 @@ export const habits = sqliteTable(
     targetValue: integer("target_value"),
     /** Unit of measurement for quantitative/timed habits (nullable). */
     unit: text("unit"),
+    /** Optional user-defined category, e.g. "Health" (nullable). */
+    category: text("category"),
+    /** JSON-serialized array of user-defined tags (nullable, defaults to []). */
+    tags: text("tags", { mode: "json" }).$type<string[]>().default([]),
     /** Number of available streak freezes. */
     freezeBank: integer("freeze_bank").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp" })

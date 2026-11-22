@@ -65,6 +65,23 @@ function createHabitFormSchema(t: (key: TranslationKey) => string) {
       /** Kept as string for the input; parsed on submit. */
       targetValue: z.string(),
       unit: z.string().trim(),
+      category: z
+        .string()
+        .trim()
+        .max(50, t("habits.form.errors.categoryTooLong")),
+      /** Comma-separated input; the Server Action splits and trims it. */
+      tags: z.string().superRefine((value, ctx) => {
+        const tags = value
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter((tag) => tag.length > 0);
+        if (tags.some((tag) => tag.length > 20)) {
+          ctx.addIssue({
+            code: "custom",
+            message: t("habits.form.errors.tagTooLong"),
+          });
+        }
+      }),
       icon: z.string(),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
     })
@@ -173,9 +190,16 @@ interface HabitFormDialogProps {
   onOpenChange: (open: boolean) => void;
   /** When set, the dialog edits this habit instead of creating a new one. */
   habit?: Habit;
+  /** Existing categories offered as datalist suggestions. */
+  categories?: string[];
 }
 
-export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogProps) {
+export function HabitFormDialog({
+  open,
+  onOpenChange,
+  habit,
+  categories = [],
+}: HabitFormDialogProps) {
   const { t } = useLanguage();
   const isEdit = Boolean(habit);
   const habitId = habit?.id ?? null;
@@ -196,6 +220,8 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
       ),
       targetValue: habit?.targetValue != null ? String(habit.targetValue) : "",
       unit: habit?.unit ?? "",
+      category: habit?.category ?? "",
+      tags: (habit?.tags ?? []).join(", "),
       icon: habit?.icon ?? "Dumbbell",
       color: habit?.color ?? HABIT_COLORS[0],
     },
@@ -215,6 +241,8 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
       ),
       targetValue: current?.targetValue != null ? String(current.targetValue) : "",
       unit: current?.unit ?? "",
+      category: current?.category ?? "",
+      tags: (current?.tags ?? []).join(", "),
       icon: current?.icon ?? "Dumbbell",
       color: current?.color ?? HABIT_COLORS[0],
     });
@@ -231,6 +259,7 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
     setSubmitting(true);
     try {
       const unit = values.unit.trim();
+      const category = values.category.trim();
       const payload = {
         name: values.name,
         type: values.type,
@@ -242,6 +271,8 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
             ? Number(values.targetValue.trim())
             : null,
         unit: needsTarget && unit ? unit : null,
+        category: category || null,
+        tags: values.tags,
       };
 
       const result = isEdit && habit
@@ -318,6 +349,48 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
                       ))}
                     </SelectContent>
                   </Select>
+                </Field>
+              )}
+            />
+
+            <Controller
+              control={form.control}
+              name="category"
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="habit-category">
+                    {t("habits.form.category")}
+                  </FieldLabel>
+                  <Input
+                    id="habit-category"
+                    list="habit-category-options"
+                    autoComplete="off"
+                    placeholder={t("habits.form.categoryPlaceholder")}
+                    {...field}
+                  />
+                  <datalist id="habit-category-options">
+                    {categories.map((category) => (
+                      <option key={category} value={category} />
+                    ))}
+                  </datalist>
+                  {fieldState.error && <FieldError>{fieldState.error.message}</FieldError>}
+                </Field>
+              )}
+            />
+
+            <Controller
+              control={form.control}
+              name="tags"
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="habit-tags">{t("habits.form.tags")}</FieldLabel>
+                  <Input
+                    id="habit-tags"
+                    autoComplete="off"
+                    placeholder={t("habits.form.tagsPlaceholder")}
+                    {...field}
+                  />
+                  {fieldState.error && <FieldError>{fieldState.error.message}</FieldError>}
                 </Field>
               )}
             />

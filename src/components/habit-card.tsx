@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { isHabitDayComplete } from "@/lib/habit-target";
-import { formatSchedule, getHabitIcon } from "@/lib/habit-ui";
+import { formatSchedule, getHabitIcon, getLabelBadgeClass } from "@/lib/habit-ui";
 import { cn } from "@/lib/utils";
 import type { Checkin, Habit } from "@/db/schema";
 
@@ -56,6 +56,8 @@ export function HabitCard({
     [habit, isDueToday, localCheckin]
   );
   const slipped = habit.type === "negative" && localCheckin != null;
+  const tags = habit.tags ?? [];
+  const hasLabels = Boolean(habit.category) || tags.length > 0;
 
   const quantTarget =
     habit.type === "quantitative" && habit.targetValue != null && habit.targetValue > 0
@@ -119,6 +121,27 @@ export function HabitCard({
         </CardAction>
       </CardHeader>
       <CardContent className="mt-auto flex flex-col gap-3">
+        {hasLabels && (
+          <div className="flex flex-wrap gap-1">
+            {habit.category && (
+              <Badge
+                variant="outline"
+                className={cn("max-w-full truncate", getLabelBadgeClass(habit.category))}
+              >
+                {habit.category}
+              </Badge>
+            )}
+            {tags.map((tag) => (
+              <Badge
+                key={tag}
+                variant="outline"
+                className={cn("max-w-full truncate", getLabelBadgeClass(tag))}
+              >
+                #{tag}
+              </Badge>
+            ))}
+          </div>
+        )}
         {quantTarget != null && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">

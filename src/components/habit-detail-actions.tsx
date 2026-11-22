@@ -28,9 +28,11 @@ import { translateActionError } from "@/lib/action-error";
 
 interface HabitDetailActionsProps {
   habit: Habit;
+  /** Existing categories offered as datalist suggestions in the edit dialog. */
+  categories?: string[];
 }
 
-export function HabitDetailActions({ habit }: HabitDetailActionsProps) {
+export function HabitDetailActions({ habit, categories }: HabitDetailActionsProps) {
   const { t } = useLanguage();
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
@@ -68,7 +70,12 @@ export function HabitDetailActions({ habit }: HabitDetailActionsProps) {
         {t("common.archive")}
       </Button>
 
-      <HabitFormDialog open={editOpen} onOpenChange={setEditOpen} habit={habit} />
+      <HabitFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        habit={habit}
+        categories={categories}
+      />
       <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
         <DialogContent>
           <DialogHeader>

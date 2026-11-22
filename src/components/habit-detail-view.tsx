@@ -21,8 +21,10 @@ import {
 import {
   formatSchedule,
   getHabitIcon,
+  getLabelBadgeClass,
   type HabitTypeValue,
 } from "@/lib/habit-ui";
+import { cn } from "@/lib/utils";
 import type { Habit } from "@/db/schema";
 import type { HeatmapWeek } from "@/lib/heatmap";
 import type { Schedule } from "@/types/schedule";
@@ -48,6 +50,8 @@ interface HabitDetailViewProps {
     rate90: number;
   };
   weeks: HeatmapWeek[];
+  /** Existing categories offered as datalist suggestions in the edit dialog. */
+  categories?: string[];
 }
 
 export function HabitDetailView({
@@ -55,6 +59,7 @@ export function HabitDetailView({
   schedule,
   stats,
   weeks,
+  categories = [],
 }: HabitDetailViewProps) {
   const { t } = useLanguage();
   const Icon = getHabitIcon(habit.icon);
@@ -77,8 +82,25 @@ export function HabitDetailView({
         <Badge variant="secondary" className="ml-2 shrink-0">
           {t(TYPE_LABEL_KEYS[habit.type])}
         </Badge>
+        {habit.category && (
+          <Badge
+            variant="outline"
+            className={cn("shrink-0", getLabelBadgeClass(habit.category))}
+          >
+            {habit.category}
+          </Badge>
+        )}
+        {(habit.tags ?? []).map((tag) => (
+          <Badge
+            key={tag}
+            variant="outline"
+            className={cn("hidden shrink-0 sm:inline-flex", getLabelBadgeClass(tag))}
+          >
+            #{tag}
+          </Badge>
+        ))}
         <div className="ml-auto shrink-0">
-          <HabitDetailActions habit={habit} />
+          <HabitDetailActions habit={habit} categories={categories} />
         </div>
       </div>
 

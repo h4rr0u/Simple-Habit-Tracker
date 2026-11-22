@@ -140,6 +140,33 @@ export const HABIT_COLORS = [
   "#64748b", // slate
 ] as const;
 
+/* --------------------------- category/tags ---------------------------- */
+
+/**
+ * Tailwind classes for category and tag badges. The palette is fixed and the
+ * tone is picked from a hash of the label, so a given category or tag keeps
+ * the same color across cards and renders.
+ */
+const LABEL_TONES = [
+  "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+  "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+  "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  "border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300",
+  "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300",
+  "border-lime-500/30 bg-lime-500/10 text-lime-700 dark:text-lime-300",
+] as const;
+
+/** Stable badge color classes for a category or tag label. */
+export function getLabelBadgeClass(label: string): string {
+  let hash = 0;
+  for (let i = 0; i < label.length; i += 1) {
+    hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
+  }
+  return LABEL_TONES[hash % LABEL_TONES.length];
+}
+
 /* ----------------------------- type meta ------------------------------ */
 
 export type HabitTypeValue = "binary" | "quantitative" | "negative" | "timed";

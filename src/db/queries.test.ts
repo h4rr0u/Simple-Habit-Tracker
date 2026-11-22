@@ -31,6 +31,7 @@ import {
   getReminderCandidatesAt,
   incrementCheckin,
   listHabits,
+  listHabitCategories,
   listReminders,
   markReminderSent,
   syncHabitFreezes,
@@ -57,6 +58,66 @@ beforeEach(() => {
   db.delete(reminders).run();
   db.delete(habits).run();
   db.delete(settings).run();
+});
+
+describe("habit category and tags", () => {
+  it("persists a category and tags and reads them back", async () => {
+    const habit = await createHabit({
+      name: "Water",
+      description: null,
+      type: "binary",
+      color: "#3b82f6",
+      icon: null,
+      schedule: { mode: "daily" } as never,
+      targetValue: null,
+      unit: null,
+      category: "Health",
+      tags: ["sport", "вода"],
+      freezeBank: 0,
+    });
+
+    const stored = await getHabitById(habit.id);
+    expect(stored?.category).toBe("Health");
+    expect(stored?.tags).toEqual(["sport", "вода"]);
+  });
+
+  it("defaults tags to an empty array when omitted", async () => {
+    const habit = await createHabit({
+      name: "Read",
+      description: null,
+      type: "binary",
+      color: "#3b82f6",
+      icon: null,
+      schedule: { mode: "daily" } as never,
+      targetValue: null,
+      unit: null,
+      freezeBank: 0,
+    });
+
+    const stored = await getHabitById(habit.id);
+    expect(stored?.category).toBeNull();
+    expect(stored?.tags).toEqual([]);
+  });
+
+  it("lists distinct active categories sorted alphabetically", async () => {
+    const base = {
+      description: null,
+      type: "binary" as const,
+      color: "#3b82f6",
+      icon: null,
+      schedule: { mode: "daily" } as never,
+      targetValue: null,
+      unit: null,
+      freezeBank: 0,
+    };
+    await createHabit({ ...base, name: "A", category: "Work" });
+    await createHabit({ ...base, name: "B", category: "Health" });
+    await createHabit({ ...base, name: "C", category: "Work" });
+    const archived = await createHabit({ ...base, name: "D", category: "Old" });
+    await archiveHabit(archived.id);
+
+    await expect(listHabitCategories()).resolves.toEqual(["Health", "Work"]);
+  });
 });
 
 describe("reminder log queries", () => {

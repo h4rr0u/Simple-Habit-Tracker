@@ -179,6 +179,21 @@ export async function getHabitById(id: number): Promise<Habit | undefined> {
 }
 
 /**
+ * Returns the distinct non-empty categories of active habits, sorted
+ * alphabetically. Used to feed the category datalist in the habit form.
+ */
+export async function listHabitCategories(): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ category: habits.category })
+    .from(habits)
+    .where(and(isNull(habits.archivedAt), sql`${habits.category} is not null`));
+  return rows
+    .map((row) => row.category)
+    .filter((category): category is string => Boolean(category?.trim()))
+    .sort((a, b) => a.localeCompare(b));
+}
+
+/**
  * Returns the persisted `paid`/`blocked` gap sets for every habit. Renders use
  * this read-only view to keep the streak walk stable; mutations go through
  * {@link syncHabitFreezes}.

@@ -62,6 +62,24 @@ const scheduleSchema = z.object({
 
 const habitTypeSchema = z.enum(habitTypeEnum);
 
+/**
+ * Tags arrive either as a comma-separated string from the form input or as an
+ * already-split array (e.g. from the bot). Both shapes normalize to a trimmed,
+ * de-duplicated string array with each tag capped at 20 characters.
+ */
+const tagsSchema = z
+  .union([z.string(), z.array(z.string())])
+  .optional()
+  .transform((value) => {
+    if (value === undefined) return undefined;
+    const raw = typeof value === "string" ? value.split(",") : value;
+    const cleaned = raw.map((tag) => tag.trim()).filter((tag) => tag.length > 0);
+    return Array.from(new Set(cleaned));
+  })
+  .refine((tags) => tags === undefined || tags.every((tag) => tag.length <= 20), {
+    message: "Each tag must be 20 characters or fewer",
+  });
+
 const createHabitSchema = z.object({
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().max(500).optional().nullable(),
@@ -74,6 +92,8 @@ const createHabitSchema = z.object({
   schedule: scheduleSchema,
   targetValue: z.number().int().min(1).optional().nullable(),
   unit: z.string().trim().max(16).optional().nullable(),
+  category: z.string().trim().max(50).optional().nullable(),
+  tags: tagsSchema,
   freezeBank: z.number().int().min(0).max(2).default(0),
 });
 
@@ -150,6 +170,8 @@ export async function createHabitAction(
       schedule: data.schedule as unknown as Schedule,
       targetValue: data.targetValue ?? null,
       unit: data.unit ?? null,
+      category: data.category || null,
+      tags: data.tags ?? [],
       freezeBank: data.freezeBank,
     });
     revalidateDashboard();
@@ -181,6 +203,8 @@ export async function updateHabitAction(
     }
     if (fields.targetValue !== undefined) data.targetValue = fields.targetValue ?? null;
     if (fields.unit !== undefined) data.unit = fields.unit ?? null;
+    if (fields.category !== undefined) data.category = fields.category || null;
+    if (fields.tags !== undefined) data.tags = fields.tags ?? [];
     if (fields.freezeBank !== undefined) data.freezeBank = fields.freezeBank;
 
     const habit = await updateHabit(id, data);

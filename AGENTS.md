@@ -51,6 +51,11 @@ drizzle/      # SQL migrations
 - Reuse existing pure logic (`src/lib/streaks.ts`, `src/lib/analytics.ts`,
   `src/lib/habit-target.ts`) instead of re-implementing streak, schedule or
   completion calculations.
+- Habit categories/tags are stored on the `habits` row (`category`, `tags`).
+  Category filtering on `/habits` is **client-side** over the already-loaded
+  cards: derive unique categories from the list, keep the selected value in
+  local state, and memoize the filtered array. Do not add a SQL filter unless
+  the habit list grows large enough to paginate.
 - Do not change the database schema unless the task explicitly requires it.
 
 ## Internationalization
@@ -125,3 +130,20 @@ drizzle/      # SQL migrations
   state appears below `MIN_MONTHS_FOR_LONG_TERM` (2 populated months). Copy is
   under `analytics.longTerm.*`; tests live in
   `src/lib/long-term-stats.test.ts`.
+
+- **Categories & tags** — `habits.category` (`text`, nullable) and
+  `habits.tags` (`text` JSON `string[]`, default `[]`) were added in migration
+  `drizzle/0006_keen_praxagora.sql`. `createHabitAction` / `updateHabitAction`
+  accept `category` (trimmed, max 50) and `tags` as either a comma-separated
+  string or a `string[]`; a Zod transform splits, trims, de-duplicates and caps
+  each tag at 20 characters before the query layer stores the array. An empty
+  category string is persisted as `NULL`. `HabitFormDialog` renders a category
+  `Input` backed by a `<datalist>` of existing categories plus a
+  comma-separated tags `Input`; `HabitCard` and the dashboard today list show
+  them as `Badge`s colored by `getLabelBadgeClass()` (`src/lib/habit-ui.ts`,
+  stable hash → fixed tone palette). `HabitsPageClient` owns the filter: unique
+  categories derived from the cards, a shadcn `Select` ("all categories"
+  sentinel `__all__`), a reset button, and a dedicated empty state when a
+  category has no habits. Copy lives under `habits.filters.*` and
+  `habits.form.category*` / `habits.form.tags*`. Tests:
+  `src/actions/habits.test.ts`.

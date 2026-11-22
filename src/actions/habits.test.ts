@@ -19,11 +19,18 @@ vi.mock("@/db/queries", () => ({
 
 import {
   claimReminderTap,
+  createHabit,
   getHabitById,
   incrementCheckin,
+  updateHabit,
   upsertCheckin,
 } from "@/db/queries";
-import { incrementCheckinAction, incrementReminderCheckinAction } from "./habits";
+import {
+  createHabitAction,
+  incrementCheckinAction,
+  incrementReminderCheckinAction,
+  updateHabitAction,
+} from "./habits";
 
 function makeHabit(overrides: Partial<Habit> = {}): Habit {
   return {
@@ -36,6 +43,8 @@ function makeHabit(overrides: Partial<Habit> = {}): Habit {
     schedule: { mode: "daily" },
     targetValue: 3,
     unit: "times",
+    category: null,
+    tags: [],
     freezeBank: 0,
     createdAt: new Date(2020, 0, 1),
     archivedAt: null,
@@ -147,5 +156,85 @@ describe("incrementReminderCheckinAction", () => {
     expect(result.ok).toBe(false);
     expect(claimReminderTap).not.toHaveBeenCalled();
     expect(incrementCheckin).not.toHaveBeenCalled();
+  });
+});
+
+describe("createHabitAction category and tags", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(createHabit).mockImplementation(async (data) =>
+      makeHabit(data as Partial<Habit>)
+    );
+  });
+
+  it("trims the category and splits, trims and de-duplicates tags", async () => {
+    const result = await createHabitAction({
+      name: "Water",
+      schedule: { mode: "daily" },
+      category: "  Health  ",
+      tags: " sport, утро , sport, ",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(createHabit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: "Health",
+        tags: ["sport", "утро"],
+      })
+    );
+  });
+
+  it("accepts an already-split tags array", async () => {
+    const result = await createHabitAction({
+      name: "Water",
+      schedule: { mode: "daily" },
+      tags: [" sport ", "вода"],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(createHabit).toHaveBeenCalledWith(
+      expect.objectContaining({ tags: ["sport", "вода"] })
+    );
+  });
+
+  it("rejects tags longer than 20 characters", async () => {
+    const result = await createHabitAction({
+      name: "Water",
+      schedule: { mode: "daily" },
+      tags: ["x".repeat(21)],
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Each tag must be 20 characters or fewer",
+    });
+    expect(createHabit).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateHabitAction category and tags", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(updateHabit).mockResolvedValue(makeHabit({ category: "Health" }));
+  });
+
+  it("parses a comma-separated tags string on update", async () => {
+    const result = await updateHabitAction({ id: 1, tags: " a, b " });
+
+    expect(result.ok).toBe(true);
+    expect(updateHabit).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ tags: ["a", "b"] })
+    );
+  });
+
+  it("clears the category when an empty string is sent", async () => {
+    const result = await updateHabitAction({ id: 1, category: "  " });
+
+    expect(result.ok).toBe(true);
+    expect(updateHabit).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ category: null })
+    );
   });
 });

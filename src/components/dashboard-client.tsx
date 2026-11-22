@@ -16,7 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatSchedule, getHabitIcon } from "@/lib/habit-ui";
+import { formatSchedule, getHabitIcon, getLabelBadgeClass } from "@/lib/habit-ui";
 import { isHabitDayComplete } from "@/lib/habit-target";
 import { cn } from "@/lib/utils";
 import type { Checkin, Habit } from "@/db/schema";
@@ -168,6 +168,34 @@ export function DashboardClient({
                         {formatSchedule(item.habit.schedule as never, t)}
                         {item.habit.type === "negative" ? t("dashboard.avoid") : ""}
                       </p>
+                      {(item.habit.category ||
+                        (item.habit.tags?.length ?? 0) > 0) && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {item.habit.category && (
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "max-w-full truncate",
+                                getLabelBadgeClass(item.habit.category)
+                              )}
+                            >
+                              {item.habit.category}
+                            </Badge>
+                          )}
+                          {(item.habit.tags ?? []).map((tag) => (
+                            <Badge
+                              key={tag}
+                              variant="outline"
+                              className={cn(
+                                "max-w-full truncate",
+                                getLabelBadgeClass(tag)
+                              )}
+                            >
+                              #{tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                       {quantTarget != null && quantTarget > 0 && (
                         <>
                           <p

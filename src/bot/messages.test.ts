@@ -61,6 +61,8 @@ function makeHabit(overrides: Partial<Habit> = {}): Habit {
     schedule: { mode: "daily" },
     targetValue: null,
     unit: null,
+    category: null,
+    tags: [],
     freezeBank: 0,
     createdAt: new Date(0),
     archivedAt: null,

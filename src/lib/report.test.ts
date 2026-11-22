@@ -19,6 +19,8 @@ function habit(overrides: Partial<Habit> = {}): Habit {
     schedule: { mode: "daily" },
     targetValue: null,
     unit: null,
+    category: null,
+    tags: [],
     freezeBank: 0,
     createdAt: new Date(2025, 9, 1),
     archivedAt: null,
