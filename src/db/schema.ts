@@ -150,7 +150,3 @@ export type Checkin = typeof checkins.$inferSelect;
 export type NewCheckin = typeof checkins.$inferInsert;
 export type Reminder = typeof reminders.$inferSelect;
 export type NewReminder = typeof reminders.$inferInsert;
-export type Setting = typeof settings.$inferSelect;
-export type UserPreferences = typeof userPreferences.$inferSelect;
-export type ReminderLog = typeof reminderLog.$inferSelect;
-export type NewReminderLog = typeof reminderLog.$inferInsert;

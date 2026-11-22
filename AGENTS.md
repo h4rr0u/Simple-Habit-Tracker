@@ -43,6 +43,13 @@ notes.
 - `package-lock.json` legitimately contains third-party dependency versions in
   the 1.2/1.3 range (Radix packages, for example). Those are dependency pins,
   not the app version — never "normalize" them.
+- Cleanup pass before the release: no `console.log` / `debugger` / `TODO` in
+  `src` except the intentional daemon status logs in `src/bot/*`, no orphan
+  components, no unused dependencies (`react-day-picker` left with
+  `ui/calendar.tsx`), and no tracked build artifacts or databases. `.gitignore`
+  covers `.turbo/`, `.idea/`, `.vscode/`, `Thumbs.db`, `*.sqlite`, `*.sqlite3`
+  and `*.db-journal`; `.env.example` stays committed (see the feature-history
+  entry below for the exact list).
 
 ## Commands
 
@@ -739,3 +746,32 @@ inline-цвет остаётся законно, — `habit.color` (цвет в�
   in `globals.css` as `transition: none !important` on the root and all
   descendants, pseudo-elements included. Palettes, contrast tokens, charts,
   success, period tokens and theme mechanics are otherwise untouched.
+
+- **Cleanup 1.1.0: удалено 7 файлов, 5 мёртвых типов, 2 пакета** — Release hygiene pass, every deletion
+  confirmed by grep before removal. Removed `src/components/ui/calendar.tsx`
+  and `src/components/ui/popover.tsx` (no importer in `src/` or `scripts/`;
+  nothing uses `data-slot="calendar"` / `data-slot="popover"` either), plus the
+  `react-day-picker` dependency that only `calendar.tsx` imported. Removed the
+  five leftover Next.js starter SVGs in `public/` (`file`, `globe`, `next`,
+  `vercel`, `window` — no reference anywhere in the repo). Dropped dead exports
+  with zero external callers: `getRemindersForHabit()`
+  (`src/db/queries.ts`), `Setting` / `UserPreferences` / `ReminderLog` /
+  `NewReminderLog` (`src/db/schema.ts`) and `HabitIconName`
+  (`src/lib/habit-ui.ts`); the `HABIT_ICONS` array itself stays because the
+  picker derives its values from it. `@dnd-kit/sortable` was installed as an
+  extraneous package (never declared in `package.json`) and is gone from
+  `node_modules` / `package-lock.json`; the grid uses `@dnd-kit/core` only, as
+  documented above. `.gitignore` gained `.turbo/`, `.idea/`, `.vscode/`,
+  `Thumbs.db`, `*.sqlite`, `*.sqlite3` and `*.db-journal`; `.env.example` is
+  still force-included through `!.env.example`. Verified: `git ls-files`
+  contains no `node_modules`, `.next`, `.turbo`, `.env`, `*.db` or `*.sqlite`;
+  `grep -rn "sidebar-primary" src` is empty (already done in the earlier
+  cleanup entry, so it was not repeated); the remaining `console.log` /
+  `console.warn` calls are only the deliberate daemon status lines in
+  `src/bot/index.ts` and `src/bot/reminders.ts`; no `debugger`, no
+  `TODO` / `FIXME` / `XXX` / `HACK` in `src`; no commented-out code block over
+  three lines (the long comments that exist all explain rationale). Drizzle
+  migrations and `drizzle/meta/*` are untouched, as are `LICENSE`, the READMEs,
+  `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and `.env.example`.
+  `tsc --noEmit`, `npm run lint`, `npm test` (18 files / 248 tests) and
+  `npm run build` were green after the removals.

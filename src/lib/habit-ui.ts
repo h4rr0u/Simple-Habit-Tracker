@@ -82,8 +82,6 @@ export const HABIT_ICONS = [
   "Gamepad2",
 ] as const;
 
-export type HabitIconName = (typeof HABIT_ICONS)[number];
-
 /** Name -> component map for the picker set. */
 const ICON_MAP: Record<string, LucideIcon> = {
   Dumbbell,

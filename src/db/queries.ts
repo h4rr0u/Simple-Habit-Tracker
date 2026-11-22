@@ -624,16 +624,6 @@ export async function getReminderCandidatesAt(
     .orderBy(asc(habits.createdAt), asc(reminders.time));
 }
 
-export async function getRemindersForHabit(
-  habitId: number,
-  options?: { enabledOnly?: boolean }
-): Promise<Reminder[]> {
-  const conditions = options?.enabledOnly
-    ? and(eq(reminders.habitId, habitId), eq(reminders.enabled, true))
-    : eq(reminders.habitId, habitId);
-  return db.select().from(reminders).where(conditions).orderBy(asc(reminders.time));
-}
-
 export async function createReminder(data: NewReminder): Promise<Reminder> {
   const [reminder] = await db.insert(reminders).values(data).returning();
   return reminder;

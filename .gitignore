@@ -23,7 +23,13 @@
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
+.idea/
+.vscode/
+
+# turborepo
+/.turbo/
 
 # logs
 *.log
@@ -53,3 +59,6 @@ next-env.d.ts
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
