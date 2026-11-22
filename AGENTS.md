@@ -276,6 +276,47 @@ inline-цвет остаётся законно, — `habit.color` (цвет в�
 карточке — 1.53:1, чип и иконка фактически невидимы. Печатный отчёт графиков
 не содержит, поэтому `@media print` period-токены не переопределяет.
 
+### Success-токен: семантический (не follow-accent)
+
+Решение: «успех / завершение / цель достигнута» — **семантический сигнал, а не
+бренд**, поэтому `--success` всегда зелёный и **не** следует за акцентом.
+Значения одинаковы во всех десяти блоках (`:root` / `.dark` + четыре пары
+`[data-accent]`); повтор — по тому же правилу, что у primary и period: блок
+не наследует чужое значение.
+
+- `--success` — заливка прогресса, «done»-бордер/тинт, свечение завершения,
+  галочка таймера, позитивная корреляция, зелёный тон бейджей категорий.
+  Light `oklch(0.448 0.119 151.328)` → `#016630` (L ≤ 0.50, читается как
+  текст); dark `oklch(0.78 0.17 152)` → `#4fd57f` (L ≥ 0.65, пастель для
+  тёмной карточки).
+- `--success-foreground` — текст/иконка **на** `--success`: light
+  `oklch(0.985 0 0)` (`#fafafa`), dark `oklch(0.18 0 0)` (`#121212`).
+- hue 151–152 намеренно **не** равен emerald-акценту (h 163): «готово» не
+  должно сливаться с `--primary`, когда выбран зелёный акцент (light
+  `#016630` vs `#007b4b`, dark `#4fd57f` vs `#00bc7d`).
+- `@theme inline` пробрасывает `--color-success` / `--color-success-foreground`,
+  поэтому в компонентах используются утилиты `text-success`, `bg-success`,
+  `border-success/40`, `bg-success/5`, `bg-success/10`; хардкод `emerald-500`
+  и `rgb(52 211 153)` из `src` удалён.
+- `CompletionGlow` строит box-shadow из
+  `color-mix(in oklch, var(--success) 55%, transparent)` (55 % ring / 35 %
+  glow) — альфа-вариант без hex.
+- Печатный отчёт success не использует, поэтому `@media print` его не
+  переопределяет.
+
+Контраст снят с **собранного** CSS (sRGB-фолбэки Lightning CSS); чип — тот же
+цвет при alpha 0.10, скомпонованный с поверхностью в sRGB:
+
+| Пара | Light | Dark |
+| --- | --- | --- |
+| `--success` на `--card` | 7.13:1 (`#016630` на `#ffffff`) | 9.52:1 (`#4fd57f` на `#171717`) |
+| `--success` на `--background` | 6.83:1 | 10.52:1 |
+| `--success-foreground` на `--success` | 6.83:1 | 9.95:1 |
+| `--success` как текст на `bg-success/10` (card / bg) | 6.12 / 5.85 | 7.94 / 9.14 |
+
+Минимум 5.85:1 — выше порога текста 4.5 и графики 3:1; бордеры
+`success/25…40` декоративные и порог не нормируют.
+
 ## Feature history
 
 - **Report Export** — Added a CSV report route
@@ -609,3 +650,15 @@ inline-цвет остаётся законно, — `habit.color` (цвет в�
   1 scope). Tests: `src/lib/appearance.test.ts` (palette order, swatch classes,
   type guard, stored value, garbage fallback, storage unavailable).
 
+- **Success: семантический токен (не follow-accent)** — Completion/goal styling
+  moved from hardcoded `emerald-500` / `rgb(52 211 153)` to `--success` /
+  `--success-foreground` in `globals.css` (all ten accent blocks, light + dark)
+  and `@theme inline` (`text-success`, `bg-success`, `border-success/*`).
+  `CompletionGlow` now builds its ring/glow with
+  `color-mix(in oklch, var(--success) …)`; habit cards, the dashboard today list
+  and quantitative progress bars use `bg-success` / `text-success`; the timer
+  target check and the positive-correlation block follow the same token; the
+  category/tag tone palette uses `success` for its green tone. `--success` is a
+  fixed green (light `#016630`, dark `#4fd57f`), deliberately off the emerald
+  accent hue so "done" never merges with `--primary`. Contrast: 7.13 / 9.52 on
+  card, 6.83 / 9.95 for foreground on success; table above.

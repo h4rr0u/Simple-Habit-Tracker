@@ -153,7 +153,7 @@ export const HABIT_COLORS = [
 const LABEL_TONES = [
   "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
   "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
-  "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  "border-success/30 bg-success/10 text-success",
   "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
   "border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300",

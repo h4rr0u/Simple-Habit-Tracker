@@ -95,7 +95,7 @@ function CorrelationRow({
       className={cn(
         "flex items-start gap-3 rounded-lg border p-3",
         isPositive
-          ? "border-emerald-500/25 bg-emerald-500/5"
+          ? "border-success/25 bg-success/5"
           : "border-red-500/25 bg-red-500/5"
       )}
     >
@@ -103,7 +103,7 @@ function CorrelationRow({
         className={cn(
           "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full",
           isPositive
-            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            ? "bg-success/10 text-success"
             : "bg-red-500/10 text-red-600 dark:text-red-400"
         )}
       >

@@ -285,7 +285,7 @@ export function TimerHabitControl({
         ) : null}
         {done ? (
           <Check
-            className="size-3.5 text-emerald-500"
+            className="size-3.5 text-success"
             aria-label={t("timer.targetReached")}
           />
         ) : null}

@@ -102,7 +102,7 @@ function HabitCardComponent({
         className={cn(
           "relative h-full gap-4 transition-shadow duration-200",
           !isDragging && "hover:shadow-lg",
-          done && habit.type !== "negative" && "border-emerald-500/40 bg-emerald-500/5",
+          done && habit.type !== "negative" && "border-success/40 bg-success/5",
           isDragging && "scale-[1.02] shadow-2xl ring-2 ring-primary/40"
         )}
         data-due={isDueToday}
@@ -180,9 +180,7 @@ function HabitCardComponent({
                 <span
                   className={cn(
                     "font-medium tabular-nums",
-                    done
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-muted-foreground"
+                    done ? "text-success" : "text-muted-foreground"
                   )}
                 >
                   {quantValue}/{quantTarget}
@@ -193,7 +191,7 @@ function HabitCardComponent({
                 <div
                   className={cn(
                     "h-full rounded-full transition-all",
-                    done && "bg-emerald-500"
+                    done && "bg-success"
                   )}
                   style={{
                     width: `${progressPct}%`,
@@ -202,7 +200,7 @@ function HabitCardComponent({
                 />
               </div>
               {done && (
-                <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                <p className="text-xs font-medium text-success">
                   {t("habits.card.goalReached")}
                 </p>
               )}

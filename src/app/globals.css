@@ -37,6 +37,8 @@
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-text: var(--primary-text);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -61,6 +63,12 @@
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.496 0.215 262.88);
   --primary-text: oklch(0.45 0.19 262.88);
+  /* Success is a semantic signal ("done / goal reached"), not a brand colour:
+     the same green in every accent block. Light is deep enough to be readable
+     as text (7.09:1 on --card) and dark is a pastel for the dark card
+     (9.56:1). success-foreground is text/icons ON --success (6.79 / 10.03). */
+  --success: oklch(0.448 0.119 151.328);
+  --success-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -123,6 +131,8 @@
   --primary-foreground: oklch(0.18 0 0);
   --primary-hover: oklch(0.668 0.214 259.815);
   --primary-text: oklch(0.75 0.11 259.815);
+  --success: oklch(0.78 0.17 152);
+  --success-foreground: oklch(0.18 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -193,7 +203,11 @@
      --chart-heat-1..4    four-step one-tone ramp, level 4 strongest; same
                           lightness direction as the series ramp
    Semantic tokens (NOT accent-driven, identical in every block by design —
-   the four parts of the day keep their own hue whichever accent is active):
+   the four parts of the day keep their own hue whichever accent is active,
+   and "success" must stay green rather than follow the brand):
+     --success            completion / goal-reached signal; light is deep
+                          (7.09:1 on --card) and dark is a pastel (9.56:1)
+     --success-foreground text/icon ON --success (>= 4.5:1 in both themes)
      --period-morning / -afternoon / -evening / -night
                           time-of-day palette used by the analytics legend and
                           the donut, >= 4.5:1 on --card/--background
@@ -205,6 +219,8 @@
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.491 0.281 293.009);
   --primary-text: oklch(0.45 0.24 293.009);
+  --success: oklch(0.448 0.119 151.328);
+  --success-foreground: oklch(0.985 0 0);
   --ring: oklch(0.541 0.281 293.009);
   --accent: oklch(0.969 0.016 293.756);
   --accent-foreground: oklch(0.38 0.189 293.745);
@@ -244,6 +260,8 @@
   --primary-foreground: oklch(0.18 0 0);
   --primary-hover: oklch(0.685 0.25 292.717);
   --primary-text: oklch(0.75 0.13 292.717);
+  --success: oklch(0.78 0.17 152);
+  --success-foreground: oklch(0.18 0 0);
   --ring: oklch(0.64 0.25 292.717);
   --accent: oklch(0.38 0.12 293.745);
   --accent-foreground: oklch(0.985 0 0);
@@ -284,6 +302,8 @@
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.45 0.145 163.225);
   --primary-text: oklch(0.44 0.12 163.225);
+  --success: oklch(0.448 0.119 151.328);
+  --success-foreground: oklch(0.985 0 0);
   --ring: oklch(0.5 0.145 163.225);
   --accent: oklch(0.979 0.021 166.113);
   --accent-foreground: oklch(0.378 0.077 168.94);
@@ -323,6 +343,8 @@
   --primary-foreground: oklch(0.18 0 0);
   --primary-hover: oklch(0.741 0.17 162.48);
   --primary-text: oklch(0.75 0.11 162.48);
+  --success: oklch(0.78 0.17 152);
+  --success-foreground: oklch(0.18 0 0);
   --ring: oklch(0.696 0.17 162.48);
   --accent: oklch(0.38 0.08 168.94);
   --accent-foreground: oklch(0.985 0 0);
@@ -363,6 +385,8 @@
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.43 0.253 17.585);
   --primary-text: oklch(0.43 0.21 17.585);
+  --success: oklch(0.448 0.119 151.328);
+  --success-foreground: oklch(0.985 0 0);
   --ring: oklch(0.48 0.253 17.585);
   --accent: oklch(0.969 0.015 12.422);
   --accent-foreground: oklch(0.412 0.17 15.722);
@@ -402,6 +426,8 @@
   --primary-foreground: oklch(0.18 0 0);
   --primary-hover: oklch(0.69 0.246 16.439);
   --primary-text: oklch(0.75 0.13 16.439);
+  --success: oklch(0.78 0.17 152);
+  --success-foreground: oklch(0.18 0 0);
   --ring: oklch(0.645 0.246 16.439);
   --accent: oklch(0.38 0.11 15.722);
   --accent-foreground: oklch(0.985 0 0);
@@ -441,6 +467,8 @@
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.493 0.195 38.402);
   --primary-text: oklch(0.44 0.16 38.402);
+  --success: oklch(0.448 0.119 151.328);
+  --success-foreground: oklch(0.985 0 0);
   --ring: oklch(0.543 0.195 38.402);
   --accent: oklch(0.98 0.016 73.684);
   --accent-foreground: oklch(0.408 0.123 38.172);
@@ -480,6 +508,8 @@
   --primary-foreground: oklch(0.18 0 0);
   --primary-hover: oklch(0.75 0.213 47.604);
   --primary-text: oklch(0.78 0.13 47.604);
+  --success: oklch(0.78 0.17 152);
+  --success-foreground: oklch(0.18 0 0);
   --ring: oklch(0.705 0.213 47.604);
   --accent: oklch(0.408 0.123 38.172);
   --accent-foreground: oklch(0.985 0 0);

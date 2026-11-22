@@ -179,7 +179,7 @@ export function DashboardClient({
                       "relative flex items-center gap-3 rounded-lg border p-3 transition-colors",
                       isDone &&
                         item.habit.type !== "negative" &&
-                        "border-emerald-500/40 bg-emerald-500/5",
+                        "border-success/40 bg-success/5",
                       isSlipped && "border-destructive/30 bg-destructive/5"
                     )}
                   >
@@ -235,7 +235,7 @@ export function DashboardClient({
                             className={cn(
                               "mt-0.5 text-xs font-medium tabular-nums",
                               isDone
-                                ? "text-emerald-600 dark:text-emerald-400"
+                                ? "text-success"
                                 : "text-muted-foreground"
                             )}
                           >
@@ -247,7 +247,7 @@ export function DashboardClient({
                             <div
                               className={cn(
                                 "h-full rounded-full transition-all",
-                                isDone && "bg-emerald-500"
+                                isDone && "bg-success"
                               )}
                               style={{
                                 width: `${progressPct}%`,

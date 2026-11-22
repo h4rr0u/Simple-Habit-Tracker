@@ -6,7 +6,10 @@ import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 /**
- * One-shot emerald glow played when a habit flips from "not done" to "done".
+ * One-shot success glow played when a habit flips from "not done" to "done".
+ *
+ * The colour comes from the semantic `--success` token (never a hardcoded
+ * emerald), so it stays a "done" signal in every accent theme.
  *
  * Mount it inside a `relative` container. It stays out of the way (renders
  * nothing) until the transition happens, so completed habits do not pulse on
@@ -52,8 +55,10 @@ export function CompletionGlow({ active, className }: CompletionGlowProps) {
         className
       )}
       style={{
-        boxShadow:
-          "0 0 0 2px rgb(52 211 153 / 0.55), 0 0 24px rgb(52 211 153 / 0.35)",
+        boxShadow: [
+          "0 0 0 2px color-mix(in oklch, var(--success) 55%, transparent)",
+          "0 0 24px color-mix(in oklch, var(--success) 35%, transparent)",
+        ].join(", "),
       }}
       initial={{ opacity: 0, scale: 0.99 }}
       animate={{ opacity: [0, 0.9, 0], scale: [0.99, 1.01, 1.02] }}
