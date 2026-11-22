@@ -16,7 +16,7 @@ import {
 import { useLanguage } from "@/components/language-provider";
 import type { DailyCompletionPoint } from "@/types/analytics";
 import { ChartEmpty } from "./chart-empty";
-import { AXIS_TICK, CHART_COLORS, TOOLTIP_STYLE } from "./chart-theme";
+import { AXIS_TICK, CHART_COLORS, TOOLTIP_PROPS } from "./chart-theme";
 
 /** Daily completion rate over the selected period, as a gradient area+line. */
 
@@ -69,7 +69,7 @@ export function CompletionLineChart({ data, hasData }: CompletionLineChartProps)
             tickLine={false}
           />
           <Tooltip
-            contentStyle={TOOLTIP_STYLE}
+            {...TOOLTIP_PROPS}
             labelFormatter={(date) => format(parseISO(String(date)), "d MMM yyyy")}
             formatter={(value) => [`${value}%`, t("analytics.chart.completed")]}
           />

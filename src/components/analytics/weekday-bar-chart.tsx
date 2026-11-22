@@ -15,7 +15,7 @@ import { useReducedMotion } from "framer-motion";
 import { useLanguage, type TranslationKey } from "@/components/language-provider";
 import type { WeekdayCompletionPoint } from "@/types/analytics";
 import { ChartEmpty } from "./chart-empty";
-import { AXIS_TICK, CHART_COLORS, SERIES_VARS, TOOLTIP_STYLE } from "./chart-theme";
+import { AXIS_TICK, CHART_COLORS, SERIES_VARS, TOOLTIP_PROPS } from "./chart-theme";
 
 /** Completion rate aggregated by weekday ("I slip on Wednesdays"). */
 
@@ -79,8 +79,8 @@ export function WeekdayBarChart({ weekdays, hasData }: WeekdayBarChartProps) {
             tickLine={false}
           />
           <Tooltip
+            {...TOOLTIP_PROPS}
             cursor={{ fill: "var(--muted)", opacity: 0.4 }}
-            contentStyle={TOOLTIP_STYLE}
             formatter={(value) => [`${value}%`, t("analytics.chart.completed")]}
           />
           <Bar

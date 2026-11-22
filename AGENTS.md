@@ -554,3 +554,33 @@ inline-цвет остаётся законно, — `habit.color` (цвет в�
   `year-heatmap.tsx` legend map was renamed to `heatVar` in passing.
   `SERIES`/`HEAT` and `TOOLTIP_STYLE` were left untouched (Sessions 3 / 5).
   Numbers and the full table live above in «Period-токены: времена суток».
+
+- **Tooltip: itemStyle/labelStyle = popover-foreground** — The default Recharts
+  tooltip of `completion-line-chart` and `weekday-bar-chart` painted every row
+  with `entry.color` and fell back to `#000`
+  (`recharts/lib/component/DefaultTooltipContent.js:112`). That colour is either
+  a series colour — `var(--chart-series-*)` measures 4.47:1 at worst (emerald
+  light, i.e. below the 4.5 text threshold) — or `url(#completionStroke)` for
+  the gradient line, which is not a valid CSS colour, so the row silently
+  rendered `#000`; on the dark popover (`#171717`) that is **1.17:1**. The
+  custom tooltips in `time-pattern-charts` / `long-term-trends-chart` already
+  used `text-popover-foreground` and are untouched.
+  `chart-theme.ts` now exports `TOOLTIP_PROPS = { contentStyle, itemStyle,
+  labelStyle }`; the two charts spread it onto `<Tooltip {...TOOLTIP_PROPS}>`.
+  `TOOLTIP_STYLE` keeps exactly its old shape (content box only) because it is
+  also used as a raw inline `style` object by both custom tooltips — adding
+  `itemStyle`/`labelStyle` keys to it would leak non-CSS props into their DOM
+  style attributes. Recharts merges `itemStyle` *after* `entry.color`
+  (`{...defaults, color: entry.color || '#000', ...itemStyle}`), so an explicit
+  `color` always wins, including for the gradient series — no custom
+  `TooltipContent` wrapper is needed. Colours follow
+  `--popover-foreground` on `--popover` (identical for all five accents, since
+  accent blocks do not override `--popover*`):
+
+  | Theme | `--popover` | `--popover-foreground` | Ratio |
+  | --- | --- | --- | --- |
+  | light | `#ffffff` | `#0a0a0a` | 19.79:1 |
+  | dark | `#171717` | `#fafafa` | 17.16:1 |
+
+  Before the fix the same rows measured 4.47:1 (series, emerald light), 1.17:1
+  (`#000` fallback on the dark popover) and 5.22:1 (series, rose dark).
