@@ -8,6 +8,7 @@ import { AnalyticsFilters } from "@/components/analytics/analytics-filters";
 import { CorrelationsBlock } from "@/components/analytics/correlations-block";
 import { ExportReportCard } from "@/components/analytics/export-report-card";
 import { formatPercent } from "@/components/analytics/chart-theme";
+import { TimePatternsBlock } from "@/components/analytics/time-patterns-block";
 import { YearHeatmap } from "@/components/analytics/year-heatmap";
 import { useLanguage, type TranslationKey } from "@/components/language-provider";
 import { TranslatedHeading } from "@/components/translated-heading";
@@ -20,6 +21,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { CorrelationResult } from "@/lib/correlations";
+import type { TimePatternStats } from "@/lib/time-stats";
 import type {
   AnalyticsData,
   HabitRecordStat,
@@ -77,6 +79,8 @@ interface AnalyticsViewProps {
   data: AnalyticsData | null;
   /** Habit-pair associations over the last 90 days. */
   correlations: CorrelationResult;
+  /** Weekday and time-of-day check-in patterns over the last 90 days. */
+  timePatterns: TimePatternStats;
 }
 
 export function AnalyticsView({
@@ -85,6 +89,7 @@ export function AnalyticsView({
   habits,
   data,
   correlations,
+  timePatterns,
 }: AnalyticsViewProps) {
   const { t } = useLanguage();
 
@@ -197,6 +202,8 @@ export function AnalyticsView({
           <WeekdayBarChart weekdays={data.weekdays} hasData={hasData} />
         </CardContent>
       </Card>
+
+      <TimePatternsBlock stats={timePatterns} />
 
       <Card>
         <CardHeader>

@@ -19,6 +19,10 @@ import {
   computeCorrelations,
   type CorrelationResult,
 } from "@/lib/correlations";
+import {
+  computeTimePatternStats,
+  type TimePatternStats,
+} from "@/lib/time-stats";
 import type { AnalyticsData, HabitSummary } from "@/types/analytics";
 
 /**
@@ -59,6 +63,8 @@ async function loadAnalyticsData(
   /** False when there is nothing to chart (no habits, or the filter missed). */
   hasScope: boolean;
   correlations: CorrelationResult;
+  /** Weekday/time-of-day patterns over the last 90 days. */
+  timePatterns: TimePatternStats;
 }> {
   // All active habits are loaded so the filter dropdown stays complete and
   // the correlation block always compares the full habit set; the selected
@@ -114,6 +120,17 @@ async function loadAnalyticsData(
     { from: addDays(today, -89), to: today }
   );
 
+  // Time patterns also use a fixed 90-day window and, like correlations, ignore
+  // the period/habit filters so the block stays stable while the user browses
+  // habits. Negative habits are skipped: their rows record slips, not
+  // completions.
+  const patternFrom = format(addDays(today, -89), "yyyy-MM-dd");
+  const patternRows = allHabitRows
+    .filter((habit) => habit.type !== "negative")
+    .flatMap((habit) => rowsByHabit.get(habit.id) ?? [])
+    .filter((row) => row.date >= patternFrom && row.date <= todayKey);
+  const timePatterns = computeTimePatternStats(patternRows);
+
   return {
     data: {
       daily: buildDailySeries(contributions),
@@ -127,6 +144,7 @@ async function loadAnalyticsData(
     habits: allHabitRows.map((habit) => ({ id: habit.id, name: habit.name })),
     hasScope: habitRows.length > 0,
     correlations,
+    timePatterns,
   };
 }
 
@@ -146,8 +164,13 @@ export default async function AnalyticsPage({
   const habitId = habitKey === "all" ? null : Number(habitKey);
 
   const todayKey = format(startOfDay(new Date()), "yyyy-MM-dd");
-  const { data, habits: habitSummaries, hasScope, correlations } =
-    await loadAnalyticsData(periodDays, habitId, todayKey);
+  const {
+    data,
+    habits: habitSummaries,
+    hasScope,
+    correlations,
+    timePatterns,
+  } = await loadAnalyticsData(periodDays, habitId, todayKey);
 
   return (
     <AnalyticsView
@@ -156,6 +179,7 @@ export default async function AnalyticsPage({
       habits={habitSummaries}
       data={hasScope ? data : null}
       correlations={correlations}
+      timePatterns={timePatterns}
     />
   );
 }

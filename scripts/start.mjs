@@ -123,6 +123,34 @@ const NPM = IS_WINDOWS ? "npm.cmd" : "npm";
 /** Папка production-сборки Next.js. */
 const BUILD_DIR = join(ROOT, ".next");
 
+/**
+ * Проверяет, что в .next лежит именно production-сборка.
+ *
+ * Одного `existsSync(BUILD_DIR)` мало: `next dev` пишет в ту же папку, и после
+ * дев-сервера в .next остаются dev-манифесты (в routes-manifest.json нет
+ * pages404/staticRoutes). `next start` на таком манифесте падает с
+ * `TypeError: routesManifest.dataRoutes is not iterable`, поэтому такой .next
+ * считается отсутствующим и пересобирается.
+ */
+function hasProductionBuild() {
+  const required = ["BUILD_ID", "routes-manifest.json", "required-server-files.json"];
+  if (!required.every((file) => existsSync(join(BUILD_DIR, file)))) return false;
+
+  try {
+    const manifest = JSON.parse(
+      readFileSync(join(BUILD_DIR, "routes-manifest.json"), "utf8"),
+    );
+    return (
+      manifest.pages404 === true &&
+      Array.isArray(manifest.staticRoutes) &&
+      Array.isArray(manifest.dynamicRoutes) &&
+      Array.isArray(manifest.dataRoutes)
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Принудительная пересборка: `npm run start:all -- --build`. */
 const FORCE_BUILD = process.argv.includes("--build") || process.argv.includes("--rebuild");
 
@@ -303,7 +331,7 @@ function printBanner() {
 
 printBanner();
 
-if (FORCE_BUILD || !existsSync(BUILD_DIR)) {
+if (FORCE_BUILD || !hasProductionBuild()) {
   if (!buildApp()) {
     console.error(paint(RED, "Запуск отменён: production-сборка не удалась."));
     process.exit(1);

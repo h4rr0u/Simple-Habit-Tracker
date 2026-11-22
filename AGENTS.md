@@ -90,3 +90,21 @@ drizzle/      # SQL migrations
   habits are inverted (a check-in is a slip). Unit tests live in
   `src/lib/correlations.test.ts`; all copy is in `ru.json` / `en.json` under
   `analytics.correlations.*`.
+
+- **Time-of-day & weekday patterns** — Added a "time patterns" block to
+  `/analytics` built on `src/lib/time-stats.ts`: `getDayOfWeekStats()` groups
+  successful check-ins into seven ISO weekdays (1 = Mon … 7 = Sun) and
+  `getTimeOfDayStats()` maps each check-in's `createdAt` local hour into
+  morning (05:00–11:59), afternoon (12:00–16:59), evening (17:00–21:59) or
+  night (22:00–04:59), both returning `{ count, percentage }` rows. Only
+  successful check-ins count (`value` null or `> 0`), and negative habits are
+  excluded because their rows record slips. Like correlations, the block uses a
+  fixed 90-day window across all active habits and ignores the period/habit
+  filters, so it stays stable while the user browses. The page computes the
+  stats from the check-ins it already loaded and passes them to
+  `src/components/analytics/time-patterns-block.tsx`, which renders a
+  Recharts bar chart plus a donut (`time-pattern-charts.tsx`, loaded with
+  `ssr: false` like the other charts) and an empty state below
+  `MIN_CHECKINS_FOR_PATTERNS` (5). Copy lives under `analytics.timePatterns.*`;
+  weekday labels reuse the shared `weekday.*` keys. Tests:
+  `src/lib/time-stats.test.ts`.
