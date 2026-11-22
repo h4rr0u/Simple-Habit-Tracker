@@ -14,6 +14,31 @@ was internal and does not describe the released version. Avoid adding heavy serv
 dependencies (Puppeteer, headless browsers, cloud services) unless there is no
 lighter path.
 
+## Architecture patterns introduced in v1.1.0
+
+Four patterns are load-bearing for the release and must not be re-implemented
+differently:
+
+- **Free-form DnD grid** — `/habits` is a 4-column CSS-grid canvas. `positionX` /
+  `positionY` on the habit row are the source of truth (no `sortOrder`); cards are
+  pinned with `gridColumn` / `gridRow`, so empty cells persist. `@dnd-kit/core`
+  only — never `@dnd-kit/sortable`. Geometry lives in `src/lib/habit-grid.ts`
+  (`cellFromPoint`, `resolveHabitMove`), persistence in `moveHabitsAction`, which
+  validates unique ids and unique cells inside one transaction.
+- **Theming** — `next-themes` (`class` attribute, dark default) plus a
+  `data-accent` attribute on `<html>` (blue, violet, emerald, orange, rose),
+  applied pre-paint from `localStorage` by `src/lib/appearance.ts`. Every accent
+  block declares the full token set in `globals.css`; components consume tokens,
+  never hex. See the contrast tables below before changing any colour.
+- **Analytics** — server-rendered `/analytics` with pure engines in
+  `src/lib/*` (`correlations.ts`, `time-stats.ts`, `long-term-stats.ts`,
+  `report.ts`). Reuse those engines; do not duplicate streak, schedule or
+  completion math in components. Charts are client-only Recharts wrapped in
+  `ssr: false` and coloured through `chart-theme.ts` CSS vars.
+- **Motion** — framer-motion presets in `src/lib/motion.ts` (`CARD_SPRING`,
+  `PAGE_TRANSITION`, `DIALOG_SPRING`); every animated component honours
+  `useReducedMotion()`, and DnD owns `transform` while a card is lifted.
+
 ## Versioning
 
 The public version lives in **one** place: `version` in `package.json`. The UI

@@ -41,6 +41,12 @@ Telegram bot. Everything runs on your machine: SQLite storage, no accounts, no c
 Taken from the bundled demo dataset (`npm run db:seed:demo`), so they match what
 the app actually shows. The Telegram bot is shown in its own section below.
 
+These captures are illustrative: they were taken in the **dark theme with the
+blue accent**, so they do not show the light theme or the other four accent
+palettes (violet, emerald, orange, rose). Everything is switchable in
+**Settings → Appearance**. How to reproduce the images is documented in
+[`docs/screenshots/README.md`](docs/screenshots/README.md).
+
 | Dashboard                                          | Analytics                                    |
 | -------------------------------------------------- | -------------------------------------------- |
 | ![Dashboard](docs/screenshots/dashboard.png)       | ![Analytics](docs/screenshots/analytics.png) |
