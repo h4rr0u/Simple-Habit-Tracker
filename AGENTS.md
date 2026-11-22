@@ -21,6 +21,13 @@ reads it through `src/lib/version.ts` (`APP_VERSION` / `APP_VERSION_LABEL`), and
 the README badges use the `shields.io/github/package-json/v` endpoint, so a
 release bump only edits `package.json` + `CHANGELOG.md`.
 
+`CHANGELOG.md` is the single source of release history. It follows
+[Keep a Changelog](https://keepachangelog.com/) and Semantic Versioning: every
+release adds a dated `## [x.y.z] - YYYY-MM-DD` section with `Added` / `Changed`
+/ `Fixed` (plus `Removed` when applicable) before the previous one. The project
+moved from **v1.0.0** to **v1.1.0** on 2026-11-22; the `1.0.0` entry stays at
+the bottom of the file as the initial release.
+
 Historical code-audit reports (files named `Code Audit … .txt` and similar
 archives) keep their original draft numbering and are **not** renamed — that
 numbering came from the internal draft phase and never described a public
@@ -33,6 +40,14 @@ notes.
 - `package.json` + `package-lock.json` (`version` and `packages[""].version`)
   both read `1.1.0`; `node -p "require('./package.json').version"` is the
   acceptance check.
+- `package.json` also carries the publishing metadata: `description` (one English
+  sentence), `keywords`, `author`, `license: "MIT"` (matching `LICENSE`),
+  `repository` / `bugs` / `homepage` pointing at
+  `github.com/h4rr0u/Simple-Habit-Tracker`, and `engines.node: ">=22.9.0"`
+  (same floor as `CONTRIBUTING.md` and the CI `node-version: 22`). `private:
+  true` stays — the app is distributed as a repository, not as an npm package.
+  `npm install --package-lock-only` mirrors `license` into
+  `package-lock.json`'s root entry; that single line is expected, do not drop it.
 - The sidebar footer renders `APP_VERSION_LABEL` (`v1.1.0`) next to the app
   name — `src/app/layout.tsx` passes it into `AppSidebar`. No other component
   hardcodes a version string.
@@ -62,11 +77,60 @@ notes.
   update instructions were verified against `package.json`, `start.bat`,
   `update.bat` and `scripts/*.mjs`; screenshots in `docs/screenshots/` exist.
   The stale `RELEASES_URL` in `scripts/update.mjs` now points to
-  `h4rr0u/Simple-Habit-Tracker` as well (`CHANGELOG.md` link definitions still
-  use the old name and belong to Session 4).
+  `h4rr0u/Simple-Habit-Tracker` as well, and the `CHANGELOG.md` link definitions
+  use the same repository name.
   `LICENSE` (2026, MIT), `.env.example` (TELEGRAM_BOT_TOKEN, DONATION_URL,
   WEB_APP_URL, DATABASE_URL, NO_COLOR) and `CONTRIBUTING.md` (Node.js ≥ 22.9)
-  are current. `CHANGELOG.md` belongs to Session 4 and was not touched.
+  are current. `CHANGELOG.md` documents the v1.1.0 release and is the file to
+  extend for every future version.
+
+### Релиз 1.1.0 — публикация
+
+Подготовка к публикации выполнена локально на ветке `release/1.1.0`. Агент
+готовит репозиторий и **не публикует** его: тег `v1.1.0` создан аннотированным
+и остаётся локальным, GitHub Release не создан, ветка не запушена и не влита в
+`main`. Черновик тела релиза — `.github/release-notes/v1.1.0.md` (ссылки внутри
+абсолютные, чтобы файл работал и как Markdown в репозитории, и как тело GitHub
+Release, где относительные пути ломаются).
+
+Чек-лист публикации (`[x]` — проверено локально 2026-11-22, `[ ]` — остаётся
+за человеком при публикации):
+
+- [ ] CI зелёный на `release/1.1.0` — единственный открытый пункт, см. ниже
+- [x] `CHANGELOG.md` содержит `[1.1.0]` с датой
+- [x] `package.json` → `version` = `1.1.0`
+- [x] README (RU/EN) без дубля бота, версия `1.1.0`
+- [x] Тег `v1.1.0` создан (аннотированный, локально)
+- [x] Release Notes готовы
+- [x] `.env.example` актуален
+- [x] Нет секретов в репозитории (`git grep`)
+- [x] Скриншоты из README существуют
+- [x] БД, `.env` и `node_modules` не в git
+- [x] `npm ci && npm run build` с нуля — ok
+
+Что уже проверено локально (Node 26.13.0, npm 11.20.0, Windows 11):
+`npm ci`, `npx tsc --noEmit`, `npm run lint`, `npm test` (18 файлов / 248
+тестов), `npm run build`, `npm run db:migrate` на пустой БД, dev- и
+prod-сервер на `/`, `/habits`, `/analytics`, `/analytics/print`, `/settings`
+(`/dashboard` не существует — дашборд это `/`), CSV-экспорт во всех шести
+комбинациях `period × lang` (BOM + `sep=;` для RU), блок `@media print` в
+собранном CSS, старт бота с реальным токеном, поиск секретов `git grep`,
+`git ls-files`. Вне CI и вручную: визуальная проверка 5 акцентов × 2 темы,
+диалог печати в PDF, двойной клик по `start.bat` / `update.bat`, интерактивные
+сценарии бота (`/start`, напоминание, инлайн-отметка).
+
+**Ограничение CI:** `.github/workflows/ci.yml` триггерится только на
+`push: main` и `pull_request`, поэтому на push в `release/1.1.0` проверки не
+запустятся. Первый пункт чек-листа закрывается после PR в `main` (или после
+ручного добавления ветки в триггер — это отдельное изменение, не часть
+релизной подготовки).
+
+**Порядок публикации (делает человек после ревью):**
+
+1. `git push origin release/1.1.0`
+2. `git push origin v1.1.0`
+3. `gh release create v1.1.0 --title "Habit Tracker v1.1.0" --notes-file .github/release-notes/v1.1.0.md` (или вставить файл в UI)
+4. Merge `release/1.1.0` → `main`
 
 ## Commands
 
