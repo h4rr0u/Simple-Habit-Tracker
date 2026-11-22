@@ -6,6 +6,7 @@ import { AccentProvider } from "@/components/accent-provider";
 import { LanguageProvider } from "@/components/language-provider";
 import { MidnightRefresh } from "@/components/midnight-refresh";
 import { Providers } from "@/components/providers";
+import { APP_VERSION_LABEL } from "@/lib/version";
 import "./globals.css";
 
 const inter = Inter({
@@ -68,7 +69,7 @@ export default function RootLayout({
             <MidnightRefresh />
             <LanguageProvider>
               <SidebarProvider>
-                <AppSidebar />
+                <AppSidebar version={APP_VERSION_LABEL} />
                 <SidebarInset>
                   <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
                     <SidebarTrigger className="-ml-1" />

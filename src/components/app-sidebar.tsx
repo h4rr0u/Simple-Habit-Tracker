@@ -49,7 +49,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { titleKey: "nav.settings", href: "/settings", icon: Settings },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ version }: { version: string }) {
   const pathname = usePathname();
   const { language, setLanguage, t } = useLanguage();
 
@@ -112,6 +112,9 @@ export function AppSidebar() {
             </SelectContent>
           </Select>
         </div>
+        <p className="px-2 pb-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+          {t("app.name")} {version}
+        </p>
       </SidebarFooter>
     </Sidebar>
   );

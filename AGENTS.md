@@ -8,8 +8,41 @@ most for automated changes and records feature-level decisions.
 
 Habit Tracker is a **local-first** Next.js 15 (App Router) app. It stores data
 in SQLite (`better-sqlite3` + Drizzle) and ships an optional grammY Telegram
-bot. Current version: **v1.0.0**. Avoid adding heavy server-side dependencies
-(Puppeteer, headless browsers, cloud services) unless there is no lighter path.
+bot. Current version: **v1.1.0** (release candidate). Historical code-audit
+reports keep their original draft numbering and are not renamed — that numbering
+was internal and does not describe the released version. Avoid adding heavy server-side
+dependencies (Puppeteer, headless browsers, cloud services) unless there is no
+lighter path.
+
+## Versioning
+
+The public version lives in **one** place: `version` in `package.json`. The UI
+reads it through `src/lib/version.ts` (`APP_VERSION` / `APP_VERSION_LABEL`), and
+the README badges use the `shields.io/github/package-json/v` endpoint, so a
+release bump only edits `package.json` + `CHANGELOG.md`.
+
+Historical code-audit reports (files named `Code Audit … .txt` and similar
+archives) keep their original draft numbering and are **not** renamed — that
+numbering came from the internal draft phase and never described a public
+release. The public line is v1.0.0 → v1.1.0 → … Do not rewrite the draft number
+inside those archives; do replace it in live code, docs, badges and release
+notes.
+
+### Release 1.1.0
+
+- `package.json` + `package-lock.json` (`version` and `packages[""].version`)
+  both read `1.1.0`; `node -p "require('./package.json').version"` is the
+  acceptance check.
+- The sidebar footer renders `APP_VERSION_LABEL` (`v1.1.0`) next to the app
+  name — `src/app/layout.tsx` passes it into `AppSidebar`. No other component
+  hardcodes a version string.
+- README badges use the dynamic `shields.io/github/package-json/v` endpoint, so
+  they follow `package.json` and never need a manual edit.
+- `start.bat` / `update.bat` / `.github/workflows/ci.yml` carry no version
+  literal; `scripts/update.mjs` only reads `git --version`.
+- `package-lock.json` legitimately contains third-party dependency versions in
+  the 1.2/1.3 range (Radix packages, for example). Those are dependency pins,
+  not the app version — never "normalize" them.
 
 ## Commands
 
@@ -678,8 +711,8 @@ inline-цвет остаётся законно, — `habit.color` (цвет в�
   accent hue so "done" never merges with `--primary`. Contrast: 7.13 / 9.52 on
   card, 6.83 / 9.95 for foreground on success; table above.
 
-- **Cleanup v1.3.0** — Dead sidebar tokens, the dark variant, browser-chrome
-  metadata and two Russian strings were fixed. `--sidebar-primary` /
+- **Cleanup (draft numbering, shipped in v1.1.0)** — Dead sidebar tokens,
+  the dark variant, browser-chrome metadata and two Russian strings were fixed. `--sidebar-primary` /
   `--sidebar-primary-foreground` were declared in all ten accent blocks (and
   exposed in `@theme inline` as `--color-sidebar-primary*`) but never consumed
   — the sidebar uses `--sidebar-accent` / `--sidebar-ring` — so all 20

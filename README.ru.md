@@ -7,13 +7,13 @@ Telegram-ботом. Всё работает на вашем компьютер�
 никаких аккаунтов и облака.
 
 [![Build passing](https://github.com/h4rr0u/habit-tracker/actions/workflows/ci.yml/badge.svg?label=build)](https://github.com/h4rr0u/habit-tracker/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/h4rr0u/habit-tracker/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/github/package-json/v/h4rr0u/habit-tracker)](https://github.com/h4rr0u/habit-tracker/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522.9-blue)
 
 [![Support](https://img.shields.io/badge/💖_Поддержать_автора-FF5E5B?style=for-the-badge)](https://www.donationalerts.com/r/h4rr0u)
 
-**Текущая версия: v1.0.0** — первый публичный релиз.
+**Текущая версия: v1.1.0**
 
 ## Скриншоты
 
