@@ -18,16 +18,19 @@ export const metadata = {
 };
 
 /**
- * Applies the stored appearance preferences (accent color, density) before
- * first paint. Keep the storage keys in sync with src/lib/appearance.ts.
+ * Applies the stored appearance preferences (accent color, density, language)
+ * before first paint. Keep the storage keys and the accent list in sync with
+ * src/lib/appearance.ts (the script cannot import modules).
  */
 const appearanceInitScript = `try{
-var a=localStorage.getItem("habit-tracker:accent");
-if(a&&a!=="blue")document.documentElement.setAttribute("data-accent",a);
-var d=localStorage.getItem("habit-tracker:density");
-if(d==="compact")document.documentElement.setAttribute("data-density","compact");
-var l=localStorage.getItem("habit-tracker:language");
-if(l==="ru"||l==="en")document.documentElement.lang=l;
+var accents=["blue","violet","emerald","orange","rose"];
+var accent=localStorage.getItem("habit-tracker:accent");
+if(accents.indexOf(accent)===-1)accent="blue";
+document.documentElement.setAttribute("data-accent",accent);
+var density=localStorage.getItem("habit-tracker:density");
+if(density==="compact")document.documentElement.setAttribute("data-density","compact");
+var language=localStorage.getItem("habit-tracker:language");
+if(language==="ru"||language==="en")document.documentElement.lang=language;
 }catch(e){}`;
 
 export default function RootLayout({
@@ -37,8 +40,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <head>
         <script dangerouslySetInnerHTML={{ __html: appearanceInitScript }} />
+      </head>
+      <body className={`${inter.variable} font-sans antialiased`}>
         <Providers>
           <AccentProvider>
             <MidnightRefresh />

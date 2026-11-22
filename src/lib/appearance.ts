@@ -11,8 +11,20 @@
 export const ACCENT_STORAGE_KEY = "habit-tracker:accent";
 export const DENSITY_STORAGE_KEY = "habit-tracker:density";
 
-export type AccentId = "blue" | "violet" | "emerald" | "orange" | "rose";
+/**
+ * Every selectable accent palette, in display order. This is the single
+ * source of truth for validation; the pre-paint script in app/layout.tsx
+ * repeats the list because inline scripts cannot import modules.
+ */
+export const ACCENTS = ["blue", "violet", "emerald", "orange", "rose"] as const;
+
+export type AccentId = (typeof ACCENTS)[number];
 export type DensityId = "comfortable" | "compact";
+
+/** Narrows an untrusted value (localStorage etc.) to a known accent. */
+export function isAccent(value: unknown): value is AccentId {
+  return typeof value === "string" && (ACCENTS as readonly string[]).includes(value);
+}
 
 /** One selectable accent theme. */
 export interface AccentOption {
@@ -26,13 +38,10 @@ export interface DensityOption {
   id: DensityId;
 }
 
-export const ACCENT_OPTIONS: AccentOption[] = [
-  { id: "blue", swatchClass: "accent-swatch-blue" },
-  { id: "violet", swatchClass: "accent-swatch-violet" },
-  { id: "emerald", swatchClass: "accent-swatch-emerald" },
-  { id: "orange", swatchClass: "accent-swatch-orange" },
-  { id: "rose", swatchClass: "accent-swatch-rose" },
-];
+export const ACCENT_OPTIONS: AccentOption[] = ACCENTS.map((id) => ({
+  id,
+  swatchClass: `accent-swatch-${id}`,
+}));
 
 export const DENSITY_OPTIONS: DensityOption[] = [
   { id: "comfortable" },
@@ -55,9 +64,7 @@ function readStored(key: string): string | null {
 /** Reads the stored accent, falling back to the default on anything unknown. */
 export function getStoredAccent(): AccentId {
   const raw = readStored(ACCENT_STORAGE_KEY);
-  return ACCENT_OPTIONS.some((option) => option.id === raw)
-    ? (raw as AccentId)
-    : DEFAULT_ACCENT;
+  return isAccent(raw) ? raw : DEFAULT_ACCENT;
 }
 
 /** Reads the stored density, falling back to the default on anything unknown. */

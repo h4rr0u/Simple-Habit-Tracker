@@ -584,3 +584,28 @@ inline-цвет остаётся законно, — `habit.color` (цвет в�
 
   Before the fix the same rows measured 4.47:1 (series, emerald light), 1.17:1
   (`#000` fallback on the dark popover) and 5.22:1 (series, rose dark).
+
+- **Accent: mounted-паттерн + валидация pre-paint** — The settings accent
+  picker no longer flashes the default palette's checkmark after hydration.
+  `src/lib/appearance.ts` now owns a single source of truth:
+  `export const ACCENTS = ["blue","violet","emerald","orange","rose"] as const`,
+  `AccentId = (typeof ACCENTS)[number]`, and
+  `isAccent(value): value is AccentId`; `ACCENT_OPTIONS` is derived from
+  `ACCENTS` (`accent-swatch-${id}`), so a new palette only needs one edit.
+  `getStoredAccent()` uses `isAccent` and returns `DEFAULT_ACCENT` for anything
+  unexpected. `AccentProvider` exposes `accent: AccentId | null` — `null` during
+  SSR and the first client render — and resolves the stored value in a mount
+  `useEffect`, so no consumer can render selection state from a guessed accent.
+  `AppearanceCard` renders a neutral `bg-muted` label placeholder, omits the
+  checkmark, the active ring and `aria-pressed` while `accent === null`, then
+  renders the real choice in the same commit that resolves it. The pre-paint
+  script in `src/app/layout.tsx` moved from `<body>` to `<head>` (before
+  next-themes' body script) and validates the stored value against its own copy
+  of the accent list (inline scripts cannot import modules — keep it in sync
+  with `ACCENTS`): `accents.indexOf(accent) === -1` coerces junk to `"blue"`
+  and the attribute is always written, so `data-accent` and React state agree
+  for any stored value. Density and language reads are unchanged. Palettes,
+  contrast tokens, print, charts and the success token are untouched (Session
+  1 scope). Tests: `src/lib/appearance.test.ts` (palette order, swatch classes,
+  type guard, stored value, garbage fallback, storage unavailable).
+

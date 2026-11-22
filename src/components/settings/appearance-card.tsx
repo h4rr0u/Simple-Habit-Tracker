@@ -97,7 +97,7 @@ export function AppearanceCard() {
     applyDensity(next);
   };
 
-  const selectedAccentLabel = t(ACCENT_LABEL_KEYS[accent]);
+  const selectedAccentLabel = accent ? t(ACCENT_LABEL_KEYS[accent]) : null;
 
   return (
     <Card>
@@ -129,7 +129,14 @@ export function AppearanceCard() {
         <div className="space-y-2">
           <div className="flex items-baseline gap-2">
             <Label>{t("settings.appearance.accent")}</Label>
-            <span className="text-sm text-muted-foreground">{selectedAccentLabel}</span>
+            {selectedAccentLabel ? (
+              <span className="text-sm text-muted-foreground">{selectedAccentLabel}</span>
+            ) : (
+              <span
+                aria-hidden="true"
+                className="inline-block h-4 w-20 self-center rounded bg-muted"
+              />
+            )}
           </div>
           <div
             className="flex flex-wrap items-center gap-2"
@@ -144,7 +151,8 @@ export function AppearanceCard() {
                   key={option.id}
                   type="button"
                   onClick={() => setAccent(option.id)}
-                  aria-pressed={active}
+                  /* Unresolved accent (pre-mount): no toggle state to report. */
+                  aria-pressed={accent === null ? undefined : active}
                   aria-label={label}
                   title={label}
                   className={cn(

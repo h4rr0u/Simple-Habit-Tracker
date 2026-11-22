@@ -10,7 +10,6 @@ import {
 } from "react";
 
 import {
-  DEFAULT_ACCENT,
   applyAccent,
   getStoredAccent,
   type AccentId,
@@ -23,8 +22,13 @@ import {
  */
 
 interface AccentContextValue {
-  /** Currently selected accent palette. */
-  accent: AccentId;
+  /**
+   * Currently applied accent, or `null` until the stored value has been read
+   * on the client. The server cannot know the stored accent, so consumers must
+   * render selection state only once this is non-null — otherwise the default
+   * accent flashes for one frame after hydration.
+   */
+  accent: AccentId | null;
   /** Changes the accent, applies it to <html> and persists it. */
   setAccent: (accent: AccentId) => void;
 }
@@ -32,9 +36,9 @@ interface AccentContextValue {
 const AccentContext = createContext<AccentContextValue | null>(null);
 
 export function AccentProvider({ children }: { children: React.ReactNode }) {
-  // Server render and first client render use the default so hydration stays
-  // consistent; the stored choice is applied right after mount.
-  const [accent, setAccentState] = useState<AccentId>(DEFAULT_ACCENT);
+  // Server render and first client render stay on `null` so hydration matches;
+  // the stored choice is resolved right after mount.
+  const [accent, setAccentState] = useState<AccentId | null>(null);
 
   useEffect(() => {
     setAccentState(getStoredAccent());
