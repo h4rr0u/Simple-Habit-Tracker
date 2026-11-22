@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FilterX, Plus } from "lucide-react";
+import { FilterX, Plus, Sparkles } from "lucide-react";
 
 import { HabitCard } from "@/components/habit-card";
 import { HabitFormDialog } from "@/components/habit-form-dialog";
+import { HabitTemplateGallery } from "@/components/habit-template-gallery";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Checkin, Habit } from "@/db/schema";
+import type { HabitTemplate } from "@/lib/templates";
 
 /**
  * Client shell for /habits: "+ New habit" button with dialog, category
@@ -38,8 +40,28 @@ const ALL_CATEGORIES = "__all__";
 
 export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [templateGalleryOpen, setTemplateGalleryOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<HabitTemplate | null>(
+    null
+  );
   const [category, setCategory] = useState(ALL_CATEGORIES);
   const { t } = useLanguage();
+
+  const openCreateDialog = () => {
+    setSelectedTemplate(null);
+    setDialogOpen(true);
+  };
+
+  const handleFormOpenChange = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) setSelectedTemplate(null);
+  };
+
+  const handleTemplateSelect = (template: HabitTemplate) => {
+    setTemplateGalleryOpen(false);
+    setSelectedTemplate(template);
+    setDialogOpen(true);
+  };
 
   // Unique categories present on the user's habits, sorted for the filter.
   const categories = useMemo(
@@ -64,19 +86,31 @@ export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t("habits.title")}</h1>
           <p className="text-muted-foreground">{t("habits.subtitle")}</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus data-icon="inline-start" />
-          {t("habits.new")}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={() => setTemplateGalleryOpen(true)}>
+            <Sparkles data-icon="inline-start" />
+            {t("habits.templates.button")}
+          </Button>
+          <Button onClick={openCreateDialog}>
+            <Plus data-icon="inline-start" />
+            {t("habits.new")}
+          </Button>
+        </div>
       </div>
+      <HabitTemplateGallery
+        open={templateGalleryOpen}
+        onOpenChange={setTemplateGalleryOpen}
+        onSelect={handleTemplateSelect}
+      />
       <HabitFormDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={handleFormOpenChange}
+        template={selectedTemplate}
         categories={categories}
       />
 
@@ -120,9 +154,17 @@ export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
           <p className="text-sm text-muted-foreground">
             {t("habits.emptyDescription")}
           </p>
-          <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
+          <Button variant="outline" size="sm" onClick={openCreateDialog}>
             <Plus data-icon="inline-start" />
             {t("habits.new")}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setTemplateGalleryOpen(true)}
+          >
+            <Sparkles data-icon="inline-start" />
+            {t("habits.templates.button")}
           </Button>
         </div>
       ) : visibleCards.length === 0 ? (

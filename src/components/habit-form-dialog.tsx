@@ -32,6 +32,7 @@ import { translateActionError } from "@/lib/action-error";
 import { HABIT_COLORS, HABIT_ICONS, HABIT_TYPES, getHabitIcon } from "@/lib/habit-ui";
 import type { HabitTypeValue } from "@/lib/habit-ui";
 import { ScheduleBuilder, type ScheduleFormValue } from "@/components/schedule-builder";
+import { TEMPLATE_CATEGORY_KEYS, type HabitTemplate } from "@/lib/templates";
 import type { Habit } from "@/db/schema";
 import type { Schedule } from "@/types/schedule";
 import { cn } from "@/lib/utils";
@@ -185,11 +186,66 @@ function formToSchedule(value: ScheduleFormValue): Schedule {
   }
 }
 
+/**
+ * Builds the form's initial values. An edited habit wins over a template;
+ * otherwise the template is translated and mapped onto the same fields.
+ */
+function toFormValues(
+  habit: Habit | undefined,
+  template: HabitTemplate | null | undefined,
+  t: (key: TranslationKey) => string
+): HabitFormValues {
+  if (habit) {
+    return {
+      name: habit.name,
+      type: habit.type,
+      schedule: scheduleToForm(
+        (habit.schedule as unknown as Schedule | undefined) ?? { mode: "daily" }
+      ),
+      targetValue: habit.targetValue != null ? String(habit.targetValue) : "",
+      unit: habit.unit ?? "",
+      category: habit.category ?? "",
+      tags: (habit.tags ?? []).join(", "),
+      icon: habit.icon ?? "Dumbbell",
+      color: habit.color ?? HABIT_COLORS[0],
+    };
+  }
+
+  if (template) {
+    return {
+      name: t(template.nameKey),
+      type: template.type,
+      schedule: scheduleToForm(template.schedule),
+      targetValue:
+        template.targetValue != null ? String(template.targetValue) : "",
+      unit: template.unit ?? "",
+      category: t(TEMPLATE_CATEGORY_KEYS[template.category]),
+      tags: "",
+      icon: template.icon,
+      color: template.color,
+    };
+  }
+
+  return {
+    name: "",
+    type: "binary",
+    schedule: scheduleToForm({ mode: "daily" }),
+    targetValue: "",
+    unit: "",
+    category: "",
+    tags: "",
+    icon: "Dumbbell",
+    color: HABIT_COLORS[0],
+  };
+}
+
 interface HabitFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** When set, the dialog edits this habit instead of creating a new one. */
   habit?: Habit;
+  /** Pre-fills the create form when the user picks a ready-made habit. */
+  template?: HabitTemplate | null;
   /** Existing categories offered as datalist suggestions. */
   categories?: string[];
 }
@@ -198,55 +254,38 @@ export function HabitFormDialog({
   open,
   onOpenChange,
   habit,
+  template,
   categories = [],
 }: HabitFormDialogProps) {
   const { t } = useLanguage();
   const isEdit = Boolean(habit);
   const habitId = habit?.id ?? null;
+  const templateId = template?.id ?? null;
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const habitRef = useRef(habit);
   habitRef.current = habit;
+  const templateRef = useRef(template);
+  templateRef.current = template;
+  // Keeps the reset effect stable across language changes: the prefilled name
+  // must not be overwritten while the user is editing the form.
+  const tRef = useRef(t);
+  tRef.current = t;
 
   const schema = useMemo(() => createHabitFormSchema(t), [t]);
 
   const form = useForm<HabitFormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      name: habit?.name ?? "",
-      type: habit?.type ?? "binary",
-      schedule: scheduleToForm(
-        (habit?.schedule as unknown as Schedule | undefined) ?? { mode: "daily" }
-      ),
-      targetValue: habit?.targetValue != null ? String(habit.targetValue) : "",
-      unit: habit?.unit ?? "",
-      category: habit?.category ?? "",
-      tags: (habit?.tags ?? []).join(", "),
-      icon: habit?.icon ?? "Dumbbell",
-      color: habit?.color ?? HABIT_COLORS[0],
-    },
+    defaultValues: toFormValues(habit, template, t),
   });
 
-  // Reset only when the dialog opens or switches to another habit. Depending
-  // on the whole `habit` object would wipe edits whenever an RSC refresh
-  // produced a new object with identical data.
+  // Reset only when the dialog opens or switches to another habit/template.
+  // Depending on the whole objects would wipe edits whenever an RSC refresh
+  // produced a new habit with identical data.
   useEffect(() => {
     if (!open) return;
-    const current = habitRef.current;
-    form.reset({
-      name: current?.name ?? "",
-      type: current?.type ?? "binary",
-      schedule: scheduleToForm(
-        (current?.schedule as unknown as Schedule | undefined) ?? { mode: "daily" }
-      ),
-      targetValue: current?.targetValue != null ? String(current.targetValue) : "",
-      unit: current?.unit ?? "",
-      category: current?.category ?? "",
-      tags: (current?.tags ?? []).join(", "),
-      icon: current?.icon ?? "Dumbbell",
-      color: current?.color ?? HABIT_COLORS[0],
-    });
-  }, [open, habitId, form]);
+    form.reset(toFormValues(habitRef.current, templateRef.current, tRef.current));
+  }, [open, habitId, templateId, form]);
 
   const type = form.watch("type");
   const color = form.watch("color");

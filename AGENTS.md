@@ -147,3 +147,22 @@ drizzle/      # SQL migrations
   category has no habits. Copy lives under `habits.filters.*` and
   `habits.form.category*` / `habits.form.tags*`. Tests:
   `src/actions/habits.test.ts`.
+
+- **Habit templates** — `src/lib/templates.ts` exposes the static
+  `HABIT_TEMPLATES` catalogue (10 ready-made habits across Health,
+  Mindfulness, Learning and Productivity) plus the `HabitTemplate` interface
+  (`id`, `icon`, `category`, `type`, optional `targetValue` / `unit`, `color`,
+  `schedule`, `nameKey`, `descKey`). Templates are pure data and are **not**
+  stored in SQLite; nothing is persisted until the user submits the habit
+  form. The `/habits` page adds a "Choose from templates" button that opens
+  `src/components/habit-template-gallery.tsx` — a Dialog with category tabs
+  and a responsive card grid (icon, translated name/description, category
+  badge). Selecting a card closes the gallery and opens the regular
+  `HabitFormDialog` with a `template` prop; the dialog translates `nameKey`
+  and pre-fills name, type, target, unit, icon, color and category while
+  leaving every field editable. Categories keep canonical English labels and
+  are localized through `TEMPLATE_CATEGORY_KEYS`; category tabs reuse the same
+  keys. Template copy lives under `template.<id>.name` /
+  `template.<id>.description`, UI copy under `habits.templates.*` in
+  `ru.json` / `en.json`. Tests: `src/lib/templates.test.ts` (unique ids, valid
+  values/icons/schedules, translations present in both dictionaries).
