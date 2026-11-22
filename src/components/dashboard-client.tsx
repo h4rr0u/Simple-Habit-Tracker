@@ -2,9 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useMotionValueEvent,
+  useReducedMotion,
+  useSpring,
+} from "framer-motion";
 import { Flame, Plus, Snowflake, Trophy } from "lucide-react";
 
+import { CompletionGlow } from "@/components/completion-glow";
 import { HabitCheckinControl } from "@/components/habit-checkin-control";
 import { useLanguage } from "@/components/language-provider";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +87,26 @@ export function DashboardClient({
 
   const progressPercent = Math.round(localProgress * 100);
 
+  const reduceMotion = useReducedMotion();
+  // Spring-driven ring: the circle eases to the new offset while the label
+  // counts up. Re-renders only happen when the rounded percentage changes.
+  const ringProgress = useSpring(0, { stiffness: 120, damping: 24 });
+  const [displayPercent, setDisplayPercent] = useState(0);
+
+  useEffect(() => {
+    ringProgress.set(localProgress);
+    if (reduceMotion) {
+      ringProgress.jump(localProgress);
+      setDisplayPercent(progressPercent);
+    }
+  }, [localProgress, progressPercent, reduceMotion, ringProgress]);
+
+  useMotionValueEvent(ringProgress, "change", (value) => {
+    if (reduceMotion) return;
+    const next = Math.round(value * 100);
+    setDisplayPercent((previous) => (previous === next ? previous : next));
+  });
+
   const todayDescription =
     totalHabits === 0
       ? t("dashboard.createToStart")
@@ -145,15 +172,21 @@ export function DashboardClient({
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
+                    whileHover={reduceMotion ? undefined : { y: -2 }}
+                    whileTap={reduceMotion ? undefined : { scale: 0.995 }}
                     transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg border p-3 transition-colors",
+                      "relative flex items-center gap-3 rounded-lg border p-3 transition-colors",
                       isDone &&
                         item.habit.type !== "negative" &&
                         "border-emerald-500/40 bg-emerald-500/5",
                       isSlipped && "border-destructive/30 bg-destructive/5"
                     )}
                   >
+                    <CompletionGlow
+                      active={isDone && item.habit.type !== "negative"}
+                      className="rounded-lg"
+                    />
                     <Icon className="size-4 shrink-0" style={{ color: item.habit.color }} />
                     <div className="min-w-0 flex-1">
                       <p
@@ -280,7 +313,7 @@ export function DashboardClient({
                   strokeWidth="30"
                 />
                 {/* Progress */}
-                <circle
+                <motion.circle
                   cx="100"
                   cy="100"
                   r={RING_RADIUS}
@@ -289,12 +322,19 @@ export function DashboardClient({
                   strokeWidth="30"
                   strokeLinecap={localProgress > 0 ? "round" : "butt"}
                   strokeDasharray={RING_CIRCUMFERENCE}
-                  strokeDashoffset={RING_CIRCUMFERENCE * (1 - localProgress)}
-                  className="transition-[stroke-dashoffset] duration-500 ease-out"
+                  initial={{ strokeDashoffset: RING_CIRCUMFERENCE }}
+                  animate={{
+                    strokeDashoffset: RING_CIRCUMFERENCE * (1 - localProgress),
+                  }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : { duration: 0.7, ease: "easeOut" }
+                  }
                 />
               </svg>
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <p className="text-3xl font-bold tabular-nums">{progressPercent}%</p>
+                <p className="text-3xl font-bold tabular-nums">{displayPercent}%</p>
               </div>
             </div>
           </CardContent>

@@ -114,11 +114,21 @@ export interface HabitGridMetrics {
 }
 
 /**
+ * How many empty rows may be opened below the last laid-out one.
+ *
+ * Without this cap a drop near the bottom of a tall page could land on row 100
+ * and strand a single card far below the rest of the canvas.
+ */
+export const MAX_EXTRAPOLATED_ROWS = 5;
+
+/**
  * Maps a point (relative to the grid's top-left corner) to a canvas cell.
  *
  * Rows below the last laid-out row are extrapolated with the default row
- * height, so dropping far into the empty area still resolves to a concrete
- * cell instead of being clamped to the bottom.
+ * height, so dropping into the empty area still resolves to a concrete cell
+ * instead of being clamped to the bottom. The result is capped at
+ * `lastRow + MAX_EXTRAPOLATED_ROWS`, so a card can never be dropped hundreds
+ * of rows below its neighbours.
  */
 export function cellFromPoint(
   pointX: number,
@@ -138,10 +148,15 @@ export function cellFromPoint(
     top = bottom;
   }
 
+  const occupiedRows = metrics.rowHeights.length;
   const lastHeight =
-    metrics.rowHeights[metrics.rowHeights.length - 1] ?? metrics.defaultRowHeight;
+    metrics.rowHeights[occupiedRows - 1] ?? metrics.defaultRowHeight;
   const rowStride = lastHeight + metrics.rowGap;
-  const extraRows = rowStride > 0 ? Math.floor((pointY - top) / rowStride) : 0;
+  const extraRows =
+    rowStride > 0 ? Math.max(0, Math.floor((pointY - top) / rowStride)) : 0;
 
-  return clampCell({ x, y: metrics.rowHeights.length + extraRows });
+  const lastRow = Math.max(0, occupiedRows - 1);
+  const maxY = lastRow + MAX_EXTRAPOLATED_ROWS;
+
+  return clampCell({ x, y: Math.min(maxY, occupiedRows + extraRows) });
 }

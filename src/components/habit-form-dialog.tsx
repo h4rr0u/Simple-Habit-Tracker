@@ -257,7 +257,7 @@ export function HabitFormDialog({
   template,
   categories = [],
 }: HabitFormDialogProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const isEdit = Boolean(habit);
   const habitId = habit?.id ?? null;
   const templateId = template?.id ?? null;
@@ -267,8 +267,8 @@ export function HabitFormDialog({
   habitRef.current = habit;
   const templateRef = useRef(template);
   templateRef.current = template;
-  // Keeps the reset effect stable across language changes: the prefilled name
-  // must not be overwritten while the user is editing the form.
+  // Keeps the reset effect stable across rerenders: the prefilled name must
+  // not be overwritten while the user is editing the form.
   const tRef = useRef(t);
   tRef.current = t;
 
@@ -279,13 +279,16 @@ export function HabitFormDialog({
     defaultValues: toFormValues(habit, template, t),
   });
 
-  // Reset only when the dialog opens or switches to another habit/template.
-  // Depending on the whole objects would wipe edits whenever an RSC refresh
-  // produced a new habit with identical data.
+  // Reset only when the dialog opens, switches to another habit/template or
+  // the language changes. Depending on the whole objects would wipe edits
+  // whenever an RSC refresh produced a new habit with identical data.
+  // `language` is a dependency because a template's name and category are
+  // translated: switching the language must re-fill the open form, otherwise
+  // it keeps the previous language.
   useEffect(() => {
     if (!open) return;
     form.reset(toFormValues(habitRef.current, templateRef.current, tRef.current));
-  }, [open, habitId, templateId, form]);
+  }, [open, habitId, templateId, language, form]);
 
   const type = form.watch("type");
   const color = form.watch("color");

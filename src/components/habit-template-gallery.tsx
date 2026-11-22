@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 
 import { useLanguage } from "@/components/language-provider";
@@ -42,6 +43,7 @@ export function HabitTemplateGallery({
   onSelect,
 }: HabitTemplateGalleryProps) {
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
   const [category, setCategory] = useState<string>(ALL_CATEGORIES);
 
   const visibleTemplates = useMemo(
@@ -83,17 +85,34 @@ export function HabitTemplateGallery({
             {t("habits.templates.empty")}
           </p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {visibleTemplates.map((template) => {
+          <motion.div
+            key={category}
+            className="grid gap-3 sm:grid-cols-2"
+            initial="hidden"
+            animate="show"
+            variants={{ hidden: {}, show: {} }}
+          >
+            {visibleTemplates.map((template, index) => {
               const Icon = getHabitIcon(template.icon);
               const categoryLabel = t(
                 TEMPLATE_CATEGORY_KEYS[template.category]
               );
               return (
-                <button
+                <motion.button
                   key={template.id}
                   type="button"
                   onClick={() => onSelect(template)}
+                  variants={{
+                    hidden: { opacity: 0, y: 10 },
+                    show: { opacity: 1, y: 0 },
+                  }}
+                  transition={{
+                    duration: reduceMotion ? 0 : 0.22,
+                    delay: reduceMotion ? 0 : index * 0.05,
+                    ease: "easeOut",
+                  }}
+                  whileHover={reduceMotion ? undefined : { y: -2 }}
+                  whileTap={reduceMotion ? undefined : { scale: 0.98 }}
                   className="group flex h-full flex-col gap-2 rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/60 hover:bg-muted/50 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
                   <div className="flex items-start gap-3">
@@ -121,10 +140,10 @@ export function HabitTemplateGallery({
                   <p className="line-clamp-2 text-xs text-muted-foreground">
                     {t(template.descKey)}
                   </p>
-                </button>
+                </motion.button>
               );
             })}
-          </div>
+          </motion.div>
         )}
       </DialogContent>
     </Dialog>

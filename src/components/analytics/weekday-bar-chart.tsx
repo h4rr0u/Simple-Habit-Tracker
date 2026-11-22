@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useReducedMotion } from "framer-motion";
 
 import { useLanguage, type TranslationKey } from "@/components/language-provider";
 import type { WeekdayCompletionPoint } from "@/types/analytics";
@@ -48,6 +49,7 @@ interface WeekdayBarChartProps {
 
 export function WeekdayBarChart({ weekdays, hasData }: WeekdayBarChartProps) {
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
 
   if (!hasData) {
     return <ChartEmpty />;
@@ -81,7 +83,14 @@ export function WeekdayBarChart({ weekdays, hasData }: WeekdayBarChartProps) {
             contentStyle={TOOLTIP_STYLE}
             formatter={(value) => [`${value}%`, t("analytics.chart.completed")]}
           />
-          <Bar dataKey="percent" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false}>
+          <Bar
+            dataKey="percent"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={40}
+            isAnimationActive={!reduceMotion}
+            animationDuration={450}
+            animationEasing="ease-out"
+          >
             {rows.map((row, index) => (
               <Cell key={row.label} fill={SERIES_COLORS[index]} />
             ))}

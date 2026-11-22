@@ -4,12 +4,14 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { FilterX, Plus, Sparkles } from "lucide-react";
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   type Announcements,
   type DragEndEvent,
+  type DragStartEvent,
   type KeyboardCoordinateGetter,
   type UniqueIdentifier,
 } from "@dnd-kit/core";
@@ -17,6 +19,7 @@ import { toast } from "sonner";
 
 import { moveHabitsAction } from "@/actions/habits";
 import { DraggableHabitCard } from "@/components/draggable-habit-card";
+import { HabitCard } from "@/components/habit-card";
 import { HabitFormDialog } from "@/components/habit-form-dialog";
 import { HabitTemplateGallery } from "@/components/habit-template-gallery";
 import { useLanguage } from "@/components/language-provider";
@@ -62,10 +65,18 @@ interface HabitsPageClientProps {
 /** Sentinel for the "all categories" option (categories are user text). */
 const ALL_CATEGORIES = "__all__";
 
-/** Fixed canvas geometry: four columns, rows at least one card tall. */
+/**
+ * Fixed canvas geometry: four columns, rows at least one card tall.
+ *
+ * `touchAction: "none"` is what keeps a long press from turning into a page
+ * scroll on touch screens: the browser would otherwise start panning and fire
+ * `pointercancel`, dropping the tile mid-gesture. Taps still reach the card's
+ * controls because the PointerSensor only lifts a card after a 250 ms hold.
+ */
 const GRID_STYLE: CSSProperties = {
   gridTemplateColumns: `repeat(${HABIT_GRID_COLUMNS}, minmax(0, 1fr))`,
   gridAutoRows: "minmax(10rem, auto)",
+  touchAction: "none",
 };
 
 /** Parses a computed grid track list ("180px 180px …") into pixel sizes. */
@@ -87,6 +98,7 @@ export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
   // Local mirror of the server canvas so a dropped tile lands instantly.
   const [orderedCards, setOrderedCards] = useState<HabitCardData[]>(cards);
   const [isDragging, setIsDragging] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
   // Screen-reader feedback for a completed drop (announcements only cover
   // pick-up and cancel because the canvas has no droppable targets).
   const [liveMessage, setLiveMessage] = useState("");
@@ -189,8 +201,14 @@ export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
     [orderedCards, category]
   );
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setIsDragging(true);
+    setActiveId(String(event.active.id));
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     setIsDragging(false);
+    setActiveId(null);
 
     const { active } = event;
     const grid = gridRef.current;
@@ -313,6 +331,10 @@ export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
     };
   }, [t, habitNameById]);
 
+  const activeCard = activeId
+    ? orderedCards.find((card) => String(card.habit.id) === activeId)
+    : null;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -414,9 +436,12 @@ export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
       ) : (
         <DndContext
           sensors={sensors}
-          onDragStart={() => setIsDragging(true)}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
-          onDragCancel={() => setIsDragging(false)}
+          onDragCancel={() => {
+            setIsDragging(false);
+            setActiveId(null);
+          }}
           accessibility={{ announcements, screenReaderInstructions }}
         >
           <div ref={gridRef} className="grid gap-4" style={GRID_STYLE}>
@@ -432,6 +457,29 @@ export function HabitsPageClient({ today, cards }: HabitsPageClientProps) {
               />
             ))}
           </div>
+          {/*
+            The lifted copy lives in the overlay so dnd-kit owns its
+            `transform`; the source cell only fades out. `pointer-events-none`
+            keeps the clone inert: a pointerup at the end of a drag must not
+            hit the link or the check-in control inside it. The drop animation
+            is off because the grid has already moved the real card to the
+            target cell optimistically — animating the clone back to the
+            source rect would show a card flying home.
+          */}
+          <DragOverlay dropAnimation={null} className="pointer-events-none">
+            {activeCard && (
+              <div className="w-full" aria-hidden="true">
+                <HabitCard
+                  habit={activeCard.habit}
+                  today={today}
+                  todayCheckin={activeCard.todayCheckin ?? undefined}
+                  streak={activeCard.streak}
+                  isDueToday={activeCard.isDueToday}
+                  isDragging={true}
+                />
+              </div>
+            )}
+          </DragOverlay>
           <p className="sr-only" aria-live="polite">
             {liveMessage}
           </p>

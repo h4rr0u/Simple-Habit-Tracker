@@ -1,6 +1,7 @@
 "use client";
 
 import { PolarAngleAxis, RadialBar, RadialBarChart, ResponsiveContainer } from "recharts";
+import { useReducedMotion } from "framer-motion";
 
 import { useLanguage } from "@/components/language-provider";
 import { ChartEmpty } from "./chart-empty";
@@ -16,6 +17,7 @@ interface AverageRadialChartProps {
 
 export function AverageRadialChart({ averageRate, hasData }: AverageRadialChartProps) {
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
 
   if (!hasData) {
     return <ChartEmpty />;
@@ -46,7 +48,9 @@ export function AverageRadialChart({ averageRate, hasData }: AverageRadialChartP
             fill="url(#averageGradient)"
             cornerRadius={12}
             background={{ fill: "var(--muted)" }}
-            isAnimationActive={false}
+            isAnimationActive={!reduceMotion}
+            animationDuration={500}
+            animationEasing="ease-out"
           />
         </RadialBarChart>
       </ResponsiveContainer>

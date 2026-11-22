@@ -37,17 +37,13 @@ const INTERACTIVE_SELECTOR =
   "button, a, input, textarea, select, [role='slider'], [role='checkbox'], [data-no-drag]";
 
 export function DraggableHabitCard({ id, ...card }: DraggableHabitCardProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id,
   });
 
   const style: CSSProperties = {
     gridColumn: card.habit.positionX + 1,
     gridRow: card.habit.positionY + 1,
-    transform: transform
-      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-      : undefined,
-    zIndex: isDragging ? 20 : undefined,
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -60,18 +56,15 @@ export function DraggableHabitCard({ id, ...card }: DraggableHabitCardProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className={cn("relative min-w-0 rounded-xl outline-none", isDragging && "z-20")}
+      className={cn(
+        "relative min-w-0 rounded-xl outline-none",
+        isDragging && "z-20"
+      )}
       {...attributes}
       {...listeners}
       onPointerDown={handlePointerDown}
     >
-      <HabitCard
-        {...card}
-        className={cn(
-          "h-full transition-transform duration-150",
-          isDragging && "scale-105 shadow-2xl ring-2 ring-primary/40"
-        )}
-      />
+      <HabitCard {...card} isDragging={false} dimmed={isDragging} />
     </div>
   );
 }

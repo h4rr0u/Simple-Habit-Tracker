@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useReducedMotion } from "framer-motion";
 
 import { useLanguage } from "@/components/language-provider";
 import type { LongTermTrendPoint } from "@/lib/long-term-stats";
@@ -79,6 +80,7 @@ interface LongTermTrendsChartProps {
 
 export function LongTermTrendsChart({ points }: LongTermTrendsChartProps) {
   const { t, language } = useLanguage();
+  const reduceMotion = useReducedMotion();
   const locale = LOCALES[language] ?? ru;
 
   const rows: TrendRow[] = points.map((point) => ({
@@ -124,7 +126,9 @@ export function LongTermTrendsChart({ points }: LongTermTrendsChartProps) {
             strokeWidth={2.5}
             dot={false}
             activeDot={{ r: 4, fill: "#38bdf8" }}
-            isAnimationActive={false}
+            isAnimationActive={!reduceMotion}
+            animationDuration={450}
+            animationEasing="ease-out"
           />
         </LineChart>
       </ResponsiveContainer>

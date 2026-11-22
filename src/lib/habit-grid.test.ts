@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   cellFromPoint,
+  MAX_EXTRAPOLATED_ROWS,
   nextFreeCell,
   resolveHabitMove,
   type HabitGridMetrics,
@@ -99,6 +100,19 @@ describe("cellFromPoint", () => {
   it("extrapolates rows below the last measured one", () => {
     // Row 2 starts at 382 and is 166 px tall; 598 lands in row 3.
     expect(cellFromPoint(0, 598, metrics).y).toBe(3);
+  });
+
+  it("caps extrapolation five rows below the last laid-out row", () => {
+    // The last measured row is row 1, so row 6 is the deepest allowed cell.
+    expect(cellFromPoint(0, 100_000, metrics).y).toBe(
+      metrics.rowHeights.length - 1 + MAX_EXTRAPOLATED_ROWS
+    );
+  });
+
+  it("caps extrapolation when no rows are laid out", () => {
+    expect(cellFromPoint(0, 100_000, { ...metrics, rowHeights: [] }).y).toBe(
+      MAX_EXTRAPOLATED_ROWS
+    );
   });
 
   it("falls back to the default height when no rows are laid out", () => {

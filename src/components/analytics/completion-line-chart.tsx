@@ -1,6 +1,7 @@
 "use client";
 
 import { parseISO, format } from "date-fns";
+import { useReducedMotion } from "framer-motion";
 import {
   Area,
   CartesianGrid,
@@ -27,6 +28,7 @@ interface CompletionLineChartProps {
 
 export function CompletionLineChart({ data, hasData }: CompletionLineChartProps) {
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
 
   if (!hasData) {
     return <ChartEmpty />;
@@ -76,7 +78,9 @@ export function CompletionLineChart({ data, hasData }: CompletionLineChartProps)
             dataKey="percent"
             stroke="none"
             fill="url(#completionFill)"
-            isAnimationActive={false}
+            isAnimationActive={!reduceMotion}
+            animationDuration={450}
+            animationEasing="ease-out"
           />
           <Line
             type="monotone"
@@ -85,7 +89,9 @@ export function CompletionLineChart({ data, hasData }: CompletionLineChartProps)
             strokeWidth={2.5}
             dot={false}
             activeDot={{ r: 4, fill: "#f472b6" }}
-            isAnimationActive={false}
+            isAnimationActive={!reduceMotion}
+            animationDuration={450}
+            animationEasing="ease-out"
           />
         </ComposedChart>
       </ResponsiveContainer>

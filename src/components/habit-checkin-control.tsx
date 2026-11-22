@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Check, Loader2, Plus, SquareCheck, Undo2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -65,6 +66,7 @@ export function HabitCheckinControl({
   onChanged,
 }: HabitCheckinControlProps) {
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
   const [text, setText] = useState(
     todayCheckin?.value != null ? String(todayCheckin.value) : ""
   );
@@ -302,10 +304,24 @@ export function HabitCheckinControl({
     >
       {pending ? (
         <Loader2 className="animate-spin" />
-      ) : complete ? (
-        <Undo2 data-icon="inline-start" />
       ) : (
-        <SquareCheck data-icon="inline-start" />
+        <motion.span
+          key={complete ? "done" : "todo"}
+          className="flex"
+          initial={{ scale: reduceMotion ? 1 : 0.7, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { type: "spring", stiffness: 480, damping: 22 }
+          }
+        >
+          {complete ? (
+            <Undo2 data-icon="inline-start" />
+          ) : (
+            <SquareCheck data-icon="inline-start" />
+          )}
+        </motion.span>
       )}
       {complete ? t("checkin.undo") : t("checkin.checkIn")}
     </Button>

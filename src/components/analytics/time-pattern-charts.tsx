@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useReducedMotion } from "framer-motion";
 import { CloudSun, Moon, Sun, Sunset } from "lucide-react";
 
 import { useLanguage, type TranslationKey } from "@/components/language-provider";
@@ -194,6 +195,7 @@ function PeriodTooltipContent({
 
 export function TimePatternCharts({ stats }: TimePatternChartsProps) {
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
 
   const weekdayRows = toWeekdayRows(stats.dayOfWeek, (dayOfWeek) =>
     t(WEEKDAY_KEYS[dayOfWeek] ?? "weekday.sun")
@@ -254,7 +256,9 @@ export function TimePatternCharts({ stats }: TimePatternChartsProps) {
                 fill="url(#timePatternBars)"
                 radius={[4, 4, 0, 0]}
                 maxBarSize={40}
-                isAnimationActive={false}
+                isAnimationActive={!reduceMotion}
+                animationDuration={450}
+                animationEasing="ease-out"
               />
             </BarChart>
           </ResponsiveContainer>
@@ -284,7 +288,9 @@ export function TimePatternCharts({ stats }: TimePatternChartsProps) {
                 outerRadius="92%"
                 paddingAngle={2}
                 stroke="none"
-                isAnimationActive={false}
+                isAnimationActive={!reduceMotion}
+                animationDuration={450}
+                animationEasing="ease-out"
               >
                 {periodRows.map((row) => (
                   <Cell key={row.period} fill={row.color} />

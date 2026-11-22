@@ -56,6 +56,22 @@ drizzle/      # SQL migrations
   cards: derive unique categories from the list, keep the selected value in
   local state, and memoize the filtered array. Do not add a SQL filter unless
   the habit list grows large enough to paginate.
+- Animation uses **framer-motion**. Interactive surfaces are `motion.*`
+  elements driven by the presets in `src/lib/motion.ts` (150–300 ms,
+  `transform`/`opacity` only, spring `stiffness: 300, damping: 20`). Every
+  animated component calls `useReducedMotion()` and skips or zeroes the
+  animation when it is `true`. Cards may use `whileHover`/`whileTap` but must
+  drop them while dnd-kit is dragging (`isDragging`). Completion feedback goes
+  through `CompletionGlow`; dialogs animate with `AnimatePresence` in
+  `src/components/ui/dialog.tsx`; route content fades in through
+  `src/app/template.tsx`; Recharts animations are enabled only when motion is
+  allowed. In `src/components/ui/dialog.tsx` the content/overlay must never set
+  `pointerEvents` in their inline `style` while open — Radix locks
+  `body { pointer-events: none }` for modal dialogs and spreads its own
+  `pointerEvents: "auto"` *before* the element style, so an explicit key makes
+  the whole dialog unclickable. Gate it on framer-motion's `useIsPresent()`
+  instead (inside the panel/backdrop components, not `DialogContent`, which
+  lives outside `AnimatePresence` and therefore always reads `true`).
 - Do not change the database schema unless the task explicitly requires it.
 
 ## Internationalization
@@ -167,6 +183,25 @@ drizzle/      # SQL migrations
   `ru.json` / `en.json`. Tests: `src/lib/templates.test.ts` (unique ids, valid
   values/icons/schedules, translations present in both dictionaries).
 
+- **Motion & micro-interactions** — framer-motion (already a dependency) now
+  drives the app's feedback layer. `src/lib/motion.ts` holds the shared presets
+  (`CARD_SPRING`, `PAGE_TRANSITION`). Habit cards (`src/components/habit-card.tsx`)
+  are wrapped in `motion.div` with `whileHover={{ y: -4, scale: 1.01 }}` and
+  `whileTap={{ scale: 0.98 }}`; `DraggableHabitCard` passes `isDragging` so the
+  hover/tap states are disabled while dnd-kit owns the transform (the drag
+  lift is applied on the inner `Card` instead). `CompletionGlow`
+  (`src/components/completion-glow.tsx`) plays a one-shot emerald ring when a
+  habit flips to done, on both the grid card and the dashboard today list. The
+  dashboard progress ring uses `motion.circle` for `stroke-dashoffset` plus
+  `useSpring`/`useMotionValueEvent` to count the percentage up. The shadcn
+  checkbox animates its check with a spring. `src/components/ui/dialog.tsx`
+  mirrors the Radix open state in a context and renders overlay/content with
+  `forceMount` inside `AnimatePresence`, so dialogs fade and slide instead of
+  snapping; the template gallery staggers its cards by 0.05 s per index.
+  `src/app/template.tsx` gives every route a fade-in-up. Recharts animations
+  are enabled (`animationDuration` 450–500 ms) only when `useReducedMotion()`
+  is false.
+
 - **Grid Canvas (free drag & drop)** — The `/habits` grid is a free-form
   canvas instead of a reordering list. `habits.positionX` (`integer`, 0-3) and
   `habits.positionY` (`integer`, 0+) replace `sortOrder`; migration
@@ -179,10 +214,15 @@ drizzle/      # SQL migrations
   pinned with `gridColumn: positionX + 1` / `gridRow: positionY + 1`, so
   empty cells and empty rows persist. `DraggableHabitCard` keeps the 250 ms /
   5 px long-press `PointerSensor` so a tap still toggles check-ins, and
-  ignores pointer-downs on buttons/links/inputs. On drop, `cellFromPoint()`
-  in `src/lib/habit-grid.ts` converts the card centre into a cell using the
-  computed column widths/row heights (extrapolating rows below the last one),
-  and `resolveHabitMove()` returns the minimal update set — one habit for an
+  ignores pointer-downs on buttons/links/inputs. While a card is lifted it is
+  rendered by a `DragOverlay` clone (`pointer-events-none`, no hover motion) and
+  the source cell only dims to `opacity-40`, so framer-motion never competes
+  with dnd-kit for `transform`; `touchAction: "none"` on the canvas keeps a
+  long press from turning into a page scroll on phones. On drop,
+  `cellFromPoint()` in `src/lib/habit-grid.ts` converts the card centre into a
+  cell using the computed column widths/row heights (extrapolating rows below
+  the last one, capped at `lastRow + MAX_EXTRAPOLATED_ROWS`), and
+  `resolveHabitMove()` returns the minimal update set — one habit for an
   empty cell, two for a swap on an occupied cell, so cards never overlap. The
   client applies the move optimistically and calls `moveHabitsAction([{ id,
   positionX, positionY }])`, which validates unique ids and unique cells,
