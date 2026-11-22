@@ -5,14 +5,32 @@
 A local-first habit tracker with flexible schedules, soft streaks and an optional
 Telegram bot. Everything runs on your machine: SQLite storage, no accounts, no cloud.
 
-[![Build passing](https://github.com/h4rr0u/habit-tracker/actions/workflows/ci.yml/badge.svg?label=build)](https://github.com/h4rr0u/habit-tracker/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/github/package-json/v/h4rr0u/habit-tracker)](https://github.com/h4rr0u/habit-tracker/releases)
+[![Build passing](https://github.com/h4rr0u/Simple-Habit-Tracker/actions/workflows/ci.yml/badge.svg?label=build)](https://github.com/h4rr0u/Simple-Habit-Tracker/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/github/package-json/v/h4rr0u/Simple-Habit-Tracker)](https://github.com/h4rr0u/Simple-Habit-Tracker/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522.9-blue)
 
 [![Support](https://img.shields.io/badge/💖_Support_the_author-FF5E5B?style=for-the-badge)](https://www.donationalerts.com/r/h4rr0u)
 
 **Current version: v1.1.0**
+
+## Contents
+
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [Installation for beginners](#installation-for-beginners)
+- [Telegram bot (optional)](#telegram-bot-optional)
+- [Backups](#backups)
+- [Updating](#updating)
+- [Settings](#settings)
+- [For developers](#for-developers)
+- [Habit types](#habit-types)
+- [Streaks & freezes](#streaks--freezes)
+- [Scripts](#scripts)
+- [Project structure](#project-structure)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Screenshots
 
@@ -31,19 +49,36 @@ the app actually shows. The Telegram bot is shown in its own section below.
 
 ## Features
 
-- **Four habit types** — binary, quantitative, negative and timed.
-- **Flexible schedules** — every day, N times per week, specific weekdays, or every N days.
-- **Soft streaks with freezes** — a missed day can spend a "freeze" instead of resetting the streak.
-- **Analytics** — completion line chart, weekday bars and a year heatmap.
-- **Telegram bot** — quick check-ins from your phone plus scheduled reminders.
-- **Appearance settings** — accent colors, compact/comfortable density, dark theme by default.
+- **Four habit types** — binary, quantitative, negative and timed, each with its
+  own target, unit and color.
+- **Flexible schedules** — every day, N times per week, specific weekdays, or
+  every N days.
+- **Soft streaks with freezes** — a missed day can spend a "freeze" instead of
+  resetting the streak; every habit earns one freeze per month (max 2).
+- **Analytics** — completion chart, weekday bars, a year heatmap, weekday and
+  time-of-day patterns, habit correlations, long-term trends over 12/36/60
+  months, plus CSV and print/PDF export.
+- **Telegram bot (optional)** — reminders, inline check-ins, language switch and
+  menu buttons.
+- **Habit templates** — 10 ready-made habits for health, mindfulness, learning
+  and productivity.
+- **Categories and tags** — organize habits and filter the grid by category.
+- **Free-form grid** — a 4-column drag-and-drop canvas; cards snap to cells and
+  empty cells are preserved.
+- **Smooth motion** — framer-motion transitions for cards, dialogs, progress and
+  charts, with reduced-motion support.
+- **Appearance** — light/dark/system theme, five accent palettes (blue, violet,
+  emerald, orange, rose) and compact/comfortable density.
+- **Windows launchers** — `start.bat`, `update.bat` and optional launch at login.
 - **JSON backups** — one-click export/import of all data for backups and migration.
 - **English and Russian UI** — switch the language in Settings at any time.
+- **DonationAlerts link** — an optional support card and bot button.
 
 ## Tech stack
 
 Next.js 15 (App Router) · TypeScript · Tailwind CSS 4 + shadcn/ui · SQLite
-(better-sqlite3, WAL) + Drizzle ORM · Recharts · grammY + node-cron.
+(better-sqlite3, WAL) + Drizzle ORM · Recharts · framer-motion · @dnd-kit/core ·
+next-themes · grammY + node-cron.
 
 ## Installation for beginners
 
@@ -66,29 +101,7 @@ Node.js is the free runtime the tracker needs.
 2. Extract the archive into a convenient folder.
    Important: extract it first — do not run the tracker directly from the ZIP file.
 
-### Step 3. (Optional) Connect the Telegram bot
-
-The web app works without this step; you just won't get Telegram reminders.
-
-1. In the project folder, find the file `.env.example`.
-2. Rename it to `.env` — remove `.example` from the end of the name.
-   If Windows hides file extensions, enable them in Explorer: **View** →
-   **Show** → **File name extensions**.
-3. Open Telegram, find [@BotFather](https://t.me/BotFather) and send `/newbot`.
-4. Choose a bot name and a username ending in `bot`. BotFather will reply with a
-   token — a long string like `123456789:ABC-DEF...`.
-5. Open the new `.env` file (double-click it to open Notepad) and paste the token
-   into the `TELEGRAM_BOT_TOKEN=` line:
-
-   ```
-   TELEGRAM_BOT_TOKEN=123456789:ABC-DEF...
-   ```
-
-6. Save the file (**Ctrl+S**) and close Notepad.
-
-Later, send `/start` to your bot to link the chat.
-
-### Step 4. Start the tracker
+### Step 3. Start the tracker
 
 Double-click **`start.bat`** in the project folder.
 
@@ -104,6 +117,9 @@ double-click `start.bat` again — startup will be much faster.
 
 If something goes wrong, the window stays open and shows the error text so you
 can read or copy it before closing.
+
+Telegram reminders are optional and configured separately — see
+[Telegram bot (optional)](#telegram-bot-optional).
 
 ### What `start.bat` does
 
@@ -132,6 +148,10 @@ Everything is stored locally in `data\habit-tracker.db` — no accounts and no
 cloud. To make a backup, open **Settings → Data** and export a JSON file.
 
 ## Telegram bot (optional)
+
+The web app works without Telegram — the bot only adds reminders and quick
+check-ins from your phone. It reads the same `.env` file and writes to the same
+SQLite database.
 
 <p align="center">
   <img src="docs/screenshots/telegram-bot.png" width="300" alt="Telegram bot: inline menu with today's habits, streaks and quick check-in buttons">
@@ -162,13 +182,13 @@ cloud. To make a backup, open **Settings → Data** and export a JSON file.
    - `/language` — switch the bot language (English / Russian);
    - `/support` — support the author (only when `DONATION_URL` is set).
 
+To disable the bot, clear `TELEGRAM_BOT_TOKEN` in `.env` and restart — the web
+app keeps working on its own.
+
 Telegram does not accept `http://localhost:3000` as an inline-button URL, so the
 "Open web version" button first shows the address as a text link. Set
 `WEB_APP_URL` to a publicly reachable address (for example an ngrok tunnel) to
 turn it into a real link button.
-
-Check-ins made in the bot are written to the same SQLite database, so they appear
-in the web interface immediately.
 
 Reminders only fire while the habit is still unchecked for the day, and the
 `reminder_log` table guarantees each reminder is sent at most once per day, even
@@ -181,7 +201,7 @@ settings) to a single JSON file and import it back later. Import **replaces** th
 current database contents, so keep the exported file safe. This is also the way
 to move your data between machines.
 
-## 🔄 Updating
+## Updating
 
 Before updating, stop the tracker: press `Ctrl+C` in the black console window
 (or close it). The updater refuses to run while port 3000 is busy, so the
@@ -197,9 +217,11 @@ If the project folder contains `.git`, `update.bat` runs
 `scripts\update.mjs`, which:
 
 1. backs up the database to `backup\`;
-2. runs `git pull` for the current branch (`main` or `master`);
+2. runs `git pull` for the current branch;
 3. runs `npm install` when `package.json` has changed;
-4. applies new Drizzle migrations with `npm run db:migrate`.
+4. applies new Drizzle migrations with `npm run db:migrate`;
+5. rebuilds the app with `npm run build` when source files or dependencies
+   changed (or when `.next` is missing).
 
 When it finishes, start the tracker again with **`start.bat`**.
 
@@ -219,7 +241,7 @@ A ZIP copy has no `.git` folder, so automatic updates are not available.
 4. Run `start.bat` in the new folder.
 
 Keep the old folder until you have checked that the new version works. Release
-notes and archives: <https://github.com/h4rr0u/habit-tracker/releases>.
+notes and archives: <https://github.com/h4rr0u/Simple-Habit-Tracker/releases>.
 
 ## Settings
 
@@ -243,11 +265,12 @@ tracker start automatically when you log into Windows.
 
 ## For developers
 
-Requirements: **Node.js ≥ 22.9** and npm.
+Requirements: **Node.js ≥ 22.9** and npm. The Windows launchers (`start.bat`,
+`update.bat`) are optional — on macOS and Linux use the npm scripts below.
 
 ```bash
-git clone https://github.com/h4rr0u/habit-tracker.git
-cd habit-tracker
+git clone https://github.com/h4rr0u/Simple-Habit-Tracker.git
+cd Simple-Habit-Tracker
 npm install
 npm run db:migrate   # create the SQLite database in ./data
 npm run dev          # http://localhost:3000 (web only)
@@ -311,7 +334,9 @@ Streaks are **soft**:
 | `npm run build`         | Production build                                                      |
 | `npm run start`         | Serve the production build                                            |
 | `npm run test`          | Run unit tests (Vitest)                                               |
+| `npm run test:watch`    | Run unit tests in watch mode                                          |
 | `npm run lint`          | ESLint                                                                |
+| `npm run db:generate`   | Generate a new Drizzle migration from the schema                      |
 | `npm run db:migrate`    | Apply Drizzle migrations to the SQLite database                       |
 | `npm run db:seed:demo`  | Build a realistic demo database at `./data/demo.db`                   |
 | `npm run db:studio`     | Open Drizzle Studio                                                   |
@@ -329,7 +354,7 @@ src/
   lib/        # Pure logic: streaks, freezes, schedules, analytics
   types/      # Shared types
   bot/        # Telegram bot (grammY)
-scripts/      # Standalone processes (reminder cron, dev launcher start.mjs)
+scripts/      # Standalone processes (reminder cron, launcher and updater)
 drizzle/      # SQL migrations
 ```
 

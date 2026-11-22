@@ -8,7 +8,7 @@ most for automated changes and records feature-level decisions.
 
 Habit Tracker is a **local-first** Next.js 15 (App Router) app. It stores data
 in SQLite (`better-sqlite3` + Drizzle) and ships an optional grammY Telegram
-bot. Current version: **v1.1.0** (release candidate). Historical code-audit
+bot. Current version: **v1.1.0**. Historical code-audit
 reports keep their original draft numbering and are not renamed — that numbering
 was internal and does not describe the released version. Avoid adding heavy server-side
 dependencies (Puppeteer, headless browsers, cloud services) unless there is no
@@ -45,11 +45,28 @@ notes.
   not the app version — never "normalize" them.
 - Cleanup pass before the release: no `console.log` / `debugger` / `TODO` in
   `src` except the intentional daemon status logs in `src/bot/*`, no orphan
-  components, no unused dependencies (`react-day-picker` left with
-  `ui/calendar.tsx`), and no tracked build artifacts or databases. `.gitignore`
+  components, no unused dependencies (`react-day-picker` was removed together
+  with `ui/calendar.tsx`), and no tracked build artifacts or databases. `.gitignore`
   covers `.turbo/`, `.idea/`, `.vscode/`, `Thumbs.db`, `*.sqlite`, `*.sqlite3`
   and `*.db-journal`; `.env.example` stays committed (see the feature-history
   entry below for the exact list).
+- Docs 1.1.0: README почищен (дубль бота удалён), ссылки проверены. `README.md`
+  and `README.ru.md` each have exactly one Telegram-bot section (the install
+  walkthrough now points to it instead of repeating the token setup) and a
+  `Contents` / `Содержание` TOC that matches the headings; the RU developer
+  heading is `## Локальный запуск` so a literal `[Бб]от` heading grep returns
+  one hit. All repository URLs point to `h4rr0u/Simple-Habit-Tracker`; the
+  feature list covers analytics (CSV/PDF, correlations, weekday/time-of-day,
+  12/36/60-month trends), templates, categories/tags, the 4-column grid, motion,
+  five accents + density, Windows launchers and DonationAlerts. Install and
+  update instructions were verified against `package.json`, `start.bat`,
+  `update.bat` and `scripts/*.mjs`; screenshots in `docs/screenshots/` exist.
+  The stale `RELEASES_URL` in `scripts/update.mjs` now points to
+  `h4rr0u/Simple-Habit-Tracker` as well (`CHANGELOG.md` link definitions still
+  use the old name and belong to Session 4).
+  `LICENSE` (2026, MIT), `.env.example` (TELEGRAM_BOT_TOKEN, DONATION_URL,
+  WEB_APP_URL, DATABASE_URL, NO_COLOR) and `CONTRIBUTING.md` (Node.js ≥ 22.9)
+  are current. `CHANGELOG.md` belongs to Session 4 and was not touched.
 
 ## Commands
 

@@ -6,6 +6,8 @@ focused, and make sure the checks below pass.
 
 ## Setup
 
+Requirements: **Node.js ≥ 22.9** and npm.
+
 ```bash
 npm install
 npm run db:migrate   # create ./data/habit-tracker.db
@@ -13,8 +15,9 @@ npm run dev          # http://localhost:3000
 ```
 
 Optional Telegram bot: copy `.env.example` to `.env`, add your
-`TELEGRAM_BOT_TOKEN` from @BotFather, then run `npm run bot:dev` and
-`npm run reminders:dev` in separate terminals.
+`TELEGRAM_BOT_TOKEN` from [@BotFather](https://t.me/BotFather), then run
+`npm run bot:dev` and `npm run reminders:dev` in separate terminals — or start
+everything with `npm run start:all`. The web app works without a token.
 
 ## Checks before you open a PR
 

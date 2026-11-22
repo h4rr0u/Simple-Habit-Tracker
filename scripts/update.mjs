@@ -31,7 +31,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const BACKUP_DIR = join(ROOT, "backup");
 const IS_WINDOWS = process.platform === "win32";
 const PORT = 3000;
-const RELEASES_URL = "https://github.com/h4rr0u/habit-tracker/releases/latest";
+const RELEASES_URL = "https://github.com/h4rr0u/Simple-Habit-Tracker/releases/latest";
 
 /* ---------------------------------- лог ---------------------------------- */
 
